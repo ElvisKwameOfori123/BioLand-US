@@ -1,0 +1,51 @@
+# BioLand-US clean public configuration.
+# Scientific constants here must match the frozen validated analysis.
+
+[project]
+name = "BioLand-US"
+currency_year = 2012
+
+[paths]
+raw = "data/raw"
+restricted = "data/restricted"
+interim = "data/interim"
+frozen = "data/frozen"
+results = "results"
+figures = "results/figures"
+logs = "logs"
+manifests = "manifests"
+
+[polysys]
+year = 2041
+biomass_price_usd_per_dry_ton = 70.0
+independent_allocation_families = 3
+
+[experiment]
+offers_usd_per_acre_year = [50.0, 100.0, 200.0, 300.0]
+contract_years = [5, 10]
+
+[behaviour.smooth_log_dollar]
+intercept = -6.017543
+ln_offer = 0.943158
+contract_10yr = -0.081661
+pasture = 0.0214773
+switchgrass = 0.746083
+
+[intensive]
+exact_case_mean = 0.860905
+central_all_accept = 0.863337
+ipw_all_accept = 0.859531
+lower_data_quality = 0.624616
+upper_data_quality = 0.920684
+
+[compensation]
+rent_multipliers = [1.0, 3.3544, 6.7088, 13.4175, 20.1263]
+support_balanced_multiplier = 6.7088
+
+[transmission]
+implemented = "T1_POOLED"
+# T2-T4 remain deferred unless defensible national formulas and weights are frozen.
+
+[uncertainty]
+bootstrap_draws = 1000
+implemented_structural_variants = 12
