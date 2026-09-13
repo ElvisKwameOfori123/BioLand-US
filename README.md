@@ -215,45 +215,6 @@ T1_POOLED_BEHAVIOURAL_TRANSMISSION
 
 Potential T2-T4 role-differentiated alternatives remain explicitly unquantified because defensible national role-control formulas and weights have not been frozen. The repository does not assign arbitrary values to them.
 
-## Selected results
-
-The values below are reporting outputs from the completed identified analysis. They are prospective implementation results under stated assumptions, not forecasts of observed farmer adoption.
-
-### Experiment-anchored compensation
-
-Family-balanced, 5-year bootstrap medians:
-
-| Annual offer, 2012 US$/acre/year | Biomass mobilized, M_Q |
-|---:|---:|
-| 50 | 57.1% |
-| 100 | 80.9% |
-| 200 | 96.0% |
-| 300 | 98.6% |
-
-### Rent-indexed compensation
-
-Family-balanced, 5-year bootstrap medians:
-
-| Rent multiplier | Biomass mobilized, M_Q |
-|---:|---:|
-| 1.0000 | 31.4% |
-| 3.3544 | 60.6% |
-| 6.7088 | 78.5% |
-| 13.4175 | 92.0% |
-| 20.1263 | 96.1% |
-
-For the support-balanced reference (`m = 6.7088`, 5-year):
-
-- median `M_Q`: **78.46%**;
-- paired respondent-bootstrap 95% interval: **70.34% to 86.08%**;
-- implemented structural range: **63.47% to 83.81%**;
-- three independent POLYSYS-family medians: **76.17% to 81.54%**;
-- corresponding 10-year median: **76.62%**.
-
-Statistical uncertainty and structural sensitivity are reported separately and are not combined into a single interval.
-
-Additional manuscript-facing result tables are available under [`results/`](results/).
-
 ## Spatial interpretation
 
 County maps describe **spatial implementation exposure under nationally transported experimental behaviour**. They are not maps of observed county willingness.
