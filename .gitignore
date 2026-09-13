@@ -1,0 +1,54 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Environments
+.venv/
+venv/
+env/
+.env
+.env.*
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Local overrides
+config/local.toml
+config/*.local.toml
+
+# Restricted and regenerable data
+data/raw/**
+data/restricted/**
+data/interim/**
+!data/raw/.gitkeep
+!data/restricted/.gitkeep
+!data/interim/.gitkeep
+!data/README.md
+
+# Local execution products
+logs/**
+results/tmp/**
+results/_local/**
+results/figures/_geometry_cache/**
+manifests/_local/**
+
+# Temporary office / export files
+~$*
+*.tmp
+
+# Build products
+build/
+dist/
+*.egg-info/
