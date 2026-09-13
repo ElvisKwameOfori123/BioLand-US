@@ -114,7 +114,7 @@ def main() -> None:
     parser.add_argument(
         "--workbook",
         type=Path,
-        default=Path("results/figures/BioLandUS_FigureWorkbook_v3_FINAL.xlsx"),
+        default=Path("results/figures/BioLandUS_FigureData.xlsx"),
     )
     parser.add_argument("--project-root", type=Path, default=Path.cwd())
     parser.add_argument("--output", type=Path, default=Path("results/figures/main"))

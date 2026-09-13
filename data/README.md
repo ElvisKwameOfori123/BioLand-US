@@ -1,58 +1,42 @@
 # Data architecture
 
-BioLand-US separates data by source, access status, and reproducibility role.
+BioLand-US separates data by source, access status and reproducibility role.
 
-## Important rule
+## Rule
 
-Do **not** commit raw or restricted source data directly to this repository unless redistribution rights have been verified.
+Do **not** commit restricted respondent-level microdata or raw third-party files
+unless redistribution rights explicitly permit it.
 
-The clean code expects the data to be placed locally under the documented folder structure.
+```text
+data/
+├── raw/          # locally downloaded public source files, gitignored
+├── restricted/   # restricted behavioural microdata, gitignored
+├── interim/      # regenerable intermediate tables, gitignored
+└── frozen/       # non-disclosive canonical inputs/outputs when permitted
+```
 
 ## Source groups
 
-| Source | Role in BioLand-US | Access / repository treatment |
+| Source | Role | Repository treatment |
 |---|---|---|
-| KBS Landowner Mail Survey on Bioenergy and Land Use | Randomized contract participation and conditional-acreage evidence | Restricted microdata. Not redistributed here. |
-| POLYSYS / 2023 Billion-Ton Report perennial allocation | Prospective county-by-land-by-feedstock acreage and biomass allocation | Public source. Retrieval metadata will be documented; raw archive is not duplicated unnecessarily. |
-| 2022 Census of Agriculture Quick Stats | Compatible county agricultural land and land-accounting structure | Public source. |
-| USDA/NASS cash rents | County/state agricultural rent context | Public source. |
-| US county geometry | Spatial joins and publication maps | Public source. |
-
-## Local folder structure
-
-```
-data/
-├── raw/          # downloaded public source files; gitignored
-├── restricted/   # restricted behavioural microdata; gitignored
-├── interim/      # regenerable intermediate files; gitignored
-└── frozen/       # small publication/reproducibility outputs that may be versioned
-```
-
-## Restricted behavioural data
-
-The repository will provide:
-
-- expected filenames;
-- required variables;
-- validation checks;
-- code that transforms the data after authorized users place the files locally.
-
-It will **not** provide the restricted respondent-level data themselves.
+| KBS Study-A landholder survey | Randomized participation and conditional-acreage evidence | Restricted microdata, never redistributed |
+| POLYSYS / Billion-Ton allocation | Prospective county-by-land-by-feedstock acreage and biomass | Public source; canonical retained allocation documented |
+| 2022 Census of Agriculture | Compatible agricultural land | Public source; frozen completion surface used by clean code |
+| USDA/NASS cash rents | County/state rent context | Public source |
+| U.S. county geometry | Spatial joins and maps | Public source |
 
 ## Reproducibility outputs
 
-Small derived outputs may be committed where they are non-disclosive and redistribution is permitted. These are intended to allow readers to reproduce manuscript tables and figures even when they cannot access the restricted behavioural microdata.
+Small derived outputs may be versioned when they are non-disclosive and
+redistribution is permitted. This allows manuscript tables and figures to be
+reproduced without publishing restricted respondent-level records.
 
 ## Provenance
 
-Every cleaned stage should record:
+The clean workflow retains the development project's fail-fast principle:
+required inputs are checked, unsupported evidence remains explicit, and
+scientific assumptions are named in the output rather than hidden in file
+versions such as `FINAL`, `v2` or `CORRECTED`.
 
-- input filenames;
-- input hashes where practical;
-- row counts;
-- key validation checks;
-- output paths;
-- model version / configuration;
-- stage status.
-
-The development pipeline used PASS / BLOCKED / REQUIRES_DECISION gates. The public pipeline retains the same fail-fast principle in a cleaner form.
+See [../docs/data_inputs.md](../docs/data_inputs.md) for the canonical input
+contracts.
