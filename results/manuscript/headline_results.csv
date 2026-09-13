@@ -1,0 +1,18 @@
+key,value,units,source,note
+transport_max_abs_deviation_pp,4.33,percentage points,F2Pa_Participation,Smooth log-dollar transport vs categorical experimental margin
+transport_deviation_at_100_pp,4.33,percentage points,F2Pa_Participation,Smooth over-predicts at US$100
+support_within_at_balanced_pct,69.99000000000001,% of production,F3Pc_SupportExposure,Within US$50-300 at m = 6.7088
+support_above_at_m2013_pct,61.67616761676168,% of production,F3Pc_SupportExposure,Above US$300 at m = 20.1263
+MQ_pooled_production_weighted_pct,79.3,% of POLYSYS biomass,MapA_Pressure,"Pooled across families, reported alongside the balanced figure"
+counties_undefined_rho,103,counties,MapA_Pressure,"Zero or undefined contractual capacity, shown as own legend category"
+undefined_share_of_unmet_pct,2.14,% of national unmet,MapA_Pressure,Unmet biomass sitting in undefined-capacity counties
+unmet_top10pct_counties_share_pct,56.4,% of national unmet,F3Pd_UnmetConcentration,Top decile of counties by unmet biomass
+unmet_share_TX_pct,55.18214068660468,% of national unmet,F3Pd_UnmetByState,Texas
+unmet_share_TX_OK_NM_pct,77.42545922260031,% of national unmet,F3Pd_UnmetByState,"Texas, Oklahoma, New Mexico"
+headline_MQ_support_balanced_pct,78.5,% of POLYSYS biomass,F4_UncertaintyLadder,"m = 6.7088, 5-year, family-balanced"
+headline_MQ_ci_pct,70.3 to 86.1,% (95% bootstrap),F4_UncertaintyLadder,Statistical uncertainty only
+structural_asymmetry_ratio,2.96,ratio,F4_UncertaintyLadder,Downside divided by upside of the structural range
+MQ_rent_parity_pct,31.4,% of POLYSYS biomass,F3Pb_RentIndexMQ,"Compensation at local cash rent, m = 1"
+tested_species_production_coverage_range_pct,47.3 to 66.5,% of POLYSYS production,F4_FeedstockCoverage,Directly supported by the two experimentally tested species
+gross_revenue_per_acre_prodweighted_usd,618.1,2012 US$ per acre,SI_PaymentCapacity,At US$70 per dry ton
+share_production_gross_below_300_pct,18.9,% of production,SI_PaymentCapacityThresholds,Counties where gross revenue cannot fund a US$300 land payment

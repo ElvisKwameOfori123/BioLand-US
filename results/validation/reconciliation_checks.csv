@@ -1,0 +1,10 @@
+check,status,observed,expected,tolerance
+Family-balanced median reproduces frozen Fig2_Experiment,PASS,0,0,< 1e-6
+Support shares sum to 100 at every multiplier,PASS,"[100.0, 100.0, 100.0, 100.0, 100.0]",100,+/- 0.05
+County family-balanced M_Q reconciles with national bootstrap mean,PASS,0.7867,0.7835,< 0.005
+Mobilized plus unmet equals Q_P,PASS,0.00e+00,0,< 1e-9
+Every fips is five characters,PASS,0,0,
+Undefined-capacity counties are an explicit display class,PASS,103,explicit,
+Structural range spans exactly 12 implemented variants,PASS,12,12,
+Intensive lower/upper bound gap is negligible,PASS,0.001581,0,< 0.01
+Bootstrap draws complete,PASS,[1000],1000,

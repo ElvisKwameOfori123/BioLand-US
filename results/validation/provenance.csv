@@ -1,0 +1,10 @@
+output,authoritative_source
+behavioural_participation,Stage 07C1 / 03A frozen extensive behaviour
+conditional_acreage,Stage 07D conditional-acreage freeze
+behavioural_access,Stage 07E behavioural access
+experiment_and_rent_mobilization,"Stage 07H paired respondent bootstrap, draw-level family balancing"
+support_exposure,Stage 07B2 support exposure
+county_spatial_results,Stage 07J county spatial robustness and rank stability
+uncertainty_summary,"Stages 07H, 07I and 07J"
+feedstock_coverage,Stage 07I feedstock transfer coverage
+payment_capacity,Derived from 07J A_P and Q_P at US$70 per dry ton

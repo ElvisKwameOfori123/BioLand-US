@@ -1,0 +1,4 @@
+scenario_name,allocation_family,tested_species_harvest_share,tested_species_production_share,interpretation,family_label,harvest_pct,production_pct
+emerging,FAMILY_01,0.6271126920163811,0.4729855194400273,Coverage of full POLYSYS allocation directly supported by species tested in Study A; untested species are not assigned zero.,Family 1,62.71126920163811,47.29855194400273
+mature-market low,FAMILY_02,0.8040419089767468,0.664983796397784,Coverage of full POLYSYS allocation directly supported by species tested in Study A; untested species are not assigned zero.,Family 2,80.40419089767468,66.4983796397784
+mature-market medium,FAMILY_03,0.7483917662014449,0.5974243569428365,Coverage of full POLYSYS allocation directly supported by species tested in Study A; untested species are not assigned zero.,Family 3,74.83917662014449,59.74243569428365
