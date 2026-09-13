@@ -4,11 +4,11 @@ set more off
 set linesize 255
 
 ********************************************************************************
-* BIOLAND-US PUBLIC REPRODUCIBILITY MASTER
+* BIOLAND-US BEHAVIOURAL ANALYSIS
 *
 * Run this file from the repository root:
 *     cd "...\BioLand-US"
-*     do stata/00_master.do
+*     do stata/00_run_behaviour.do
 *
 * Restricted respondent-level data are never committed to GitHub.
 ********************************************************************************
@@ -29,9 +29,9 @@ capture mkdir "$FROZEN_R"
 capture mkdir "$RESULTS_R"
 capture mkdir "$LOGS"
 
-do "$ROOT/stata/01_prepare_restricted_behaviour.do"
-do "$ROOT/stata/02_estimate_behaviour.do"
-do "$ROOT/stata/03_freeze_intensive.do"
+do "$ROOT/stata/01_prepare_behaviour.do"
+do "$ROOT/stata/02_estimate_participation.do"
+do "$ROOT/stata/03_reconstruct_conditional_acreage.do"
 do "$ROOT/stata/04_export_behaviour.do"
 do "$ROOT/stata/05_validate_behaviour.do"
 

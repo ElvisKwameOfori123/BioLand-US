@@ -1,4 +1,4 @@
-"""Validate the canonical Stata behavioural exports before national modelling."""
+"""Validate the canonical behavioural exports before national modelling."""
 
 from __future__ import annotations
 
@@ -49,7 +49,7 @@ def main() -> None:
     if bootstrap["id"].isna().any():
         raise ValueError("Respondent id contains missing values.")
 
-    print("PASS: canonical behavioural exports validated.")
+    print("PASS: canonical behavioural inputs validated.")
     print(f"  rows={len(bootstrap):,}")
     print(f"  respondents={bootstrap['id'].nunique():,}")
     print(f"  accepted={int(bootstrap['acc'].sum()):,}")
