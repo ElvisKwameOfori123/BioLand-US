@@ -64,7 +64,10 @@ def main() -> None:
     if x["B"].isna().any():
         raise ValueError("Some resource pools have no compatible-land denominator.")
 
+    # T1 pooled behavioural transmission: kappa = b.
+    # Missing kappa is preserved for unsupported rent-context cells.
     x["K"] = x["B"] * x["kappa"]
+
     out = apply_capacity_constraint(x)
     summary = national_summary(out)
 
@@ -74,6 +77,7 @@ def main() -> None:
     summary.to_csv(args.output_summary, index=False)
 
     print("PASS: deterministic capacity and mobilization complete.")
+    print("Unsupported cells are retained as full-denominator lower/upper bounds.")
     print(f"  detail={args.output_detail}")
     print(f"  summary={args.output_summary}")
 
