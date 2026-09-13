@@ -1,0 +1,10 @@
+cff-version: 1.2.0
+message: "If you use BioLand-US, please cite the associated manuscript and this software."
+title: "BioLand-US"
+type: software
+authors:
+  - family-names: "Ofori"
+    given-names: "Elvis Kwame"
+repository-code: "https://github.com/ElvisKwameOfori123/BioLand-US"
+version: 0.1.0
+date-released: 2026-09-13
