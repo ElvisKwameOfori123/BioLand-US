@@ -1,5 +1,7 @@
 # Data inputs
 
+The exact source-file ledger and SHA-256 checksums are recorded in [`data/source_registry.csv`](../data/source_registry.csv).
+
 BioLand-US separates raw source acquisition from manuscript-facing analysis.
 The clean scripts operate on documented canonical inputs rather than on every
 vendor-specific raw layout used during development.

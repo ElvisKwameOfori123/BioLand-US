@@ -32,6 +32,7 @@ config/*.local.toml
 data/raw/**
 data/restricted/**
 data/interim/**
+data/frozen/restricted/**
 !data/raw/.gitkeep
 !data/restricted/.gitkeep
 !data/interim/.gitkeep
