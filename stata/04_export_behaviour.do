@@ -10,12 +10,17 @@ set more off
 use "$FROZEN_R/behaviour_analytic_RESTRICTED.dta", clear
 
 keep id acc offer contract land_type experimental_feedstock ///
+    intensive_status ///
+    share_exact_observed share_lower_frozen share_upper_frozen ///
     share_central_primary
 
 rename contract contract_years
 rename share_central_primary share_central
 
-order id acc offer contract_years land_type experimental_feedstock share_central
+order id acc offer contract_years land_type experimental_feedstock ///
+    intensive_status share_exact_observed share_lower_frozen ///
+    share_upper_frozen share_central
+
 sort id experimental_feedstock land_type
 
 export delimited using ///
