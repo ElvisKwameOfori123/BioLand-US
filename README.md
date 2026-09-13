@@ -1,77 +1,116 @@
 # BioLand-US
 
-**Behavioural and contractual land access shape prospective U.S. perennial-biomass mobilization**
+**A reproducible framework for evaluating contractual land-access constraints on prospective U.S. perennial-biomass mobilization**
 
-BioLand-US is a spatially explicit, behaviourally and institutionally constrained implementation model. It asks whether a prospective biomass allocation can be supported by the land, landholder participation and contractual access required to deliver it.
+> **Manuscript status:** in preparation. This README is repository documentation written specifically for the software and reproducibility package. It is not the manuscript abstract, and its wording is intentionally kept separate from the paper.
+
+## Project overview
+
+BioLand-US is a spatially explicit ex ante implementation model that links a fixed upstream perennial-biomass allocation to county agricultural land, contract compensation, experimentally estimated landholder responses and an explicit institutional transmission rule.
+
+The model asks whether biomass acreage that is economically allocated in POLYSYS can also be supported by the land and voluntary contractual participation required for implementation.
+
+BioLand-US therefore keeps four quantities separate:
 
 ```text
-techno-economic allocation
+techno-economic biomass allocation
         ↓
-compatible land
+compatible agricultural land
         ↓
-behavioural access
+contractually accessible land
         ↓
-contractual capacity
+prospectively mobilized biomass
+```
+
+This repository contains the clean manuscript-facing code, data contracts, validation tests and non-disclosive results required to reproduce the identified analysis. It does not reproduce every forensic or failed development script used while the model was being built.
+
+## Research question
+
+> Given a fixed perennial-biomass allocation from POLYSYS, how much of that allocation can be matched to experimentally informed contractual land-access capacity, where do capacity constraints occur, and how robust are the conclusions to statistical and structural uncertainty?
+
+BioLand-US does not rerun or re-optimize POLYSYS. It operates as a downstream implementation layer.
+
+## Analytical framework
+
+```text
+POLYSYS allocation
         ↓
-mobilized biomass
+compatible county land
+        ↓
+contract offer
+        ↓
+participation probability, p
+        ↓
+conditional acreage share, s
+        ↓
+behavioural land access, b = p × s
+        ↓
+institutional transmission, b → kappa
+        ↓
+contractual capacity, K = B × kappa
+        ↓
+capacity matching
+        ↓
+mobilized acreage and biomass
         ↓
 spatial robustness
 ```
 
-The central distinction is:
+For county `c` and land pool `l`:
 
 ```text
-land can be technically suitable
-!= economically allocated
-!= contractually accessible
+A_P    upstream POLYSYS acreage requirement
+Q_P    upstream POLYSYS biomass production
+B      compatible agricultural land
+p      probability of contract participation
+s      conditional acreage share among participants
+b      landholder-level behavioural access response
+kappa  county-by-land acreage-access rate under the transmission rule
+K      contractual land-access capacity
 ```
 
-## Repository purpose
-
-This repository contains the **clean manuscript-facing analysis**, not the full development history. Forensic scripts, failed variants, temporary audits and local-path debugging code were used during model construction but are not required to reproduce the paper once the scientific rules were frozen.
-
-The public workflow keeps the final calculations and validation gates while excluding obsolete development clutter.
-
-## Code structure
-
-### Stata: behavioural estimation
+The composition-preserving matching rule is:
 
 ```text
-stata/
-├── 00_run_behaviour.do
-├── 01_prepare_behaviour.do
-├── 02_estimate_participation.do
-├── 03_reconstruct_conditional_acreage.do
-├── 04_export_behaviour.do
-└── 05_validate_behaviour.do
+rho    = A_P / K
+lambda = min(1, K / A_P)
+
+A_M = lambda × A_P
+Q_M = lambda × Q_P
 ```
 
-Stata 18.5 is authoritative for the Study-A behavioural estimation and restricted-data reconstruction.
-
-### Python: national implementation model
+The main national outcome is:
 
 ```text
-scripts/
-├── 00_run_core.py
-├── 01_validate_behaviour.py
-├── 02_prepare_polysys.py
-├── 03_prepare_land.py
-├── 04_prepare_rents.py
-├── 05_build_behavioural_access.py
-├── 06_run_mobilization.py
-├── 07_run_bootstrap.py
-├── 08_run_structural_sensitivity.py
-├── 09_build_spatial_outputs.py
-└── 10_make_figures.py
+M_Q = sum(Q_M) / sum(Q_P)
 ```
 
-Reusable scientific functions live in `src/bioland_us/`.
+## Evidence used by the model
 
-## Frozen analytical architecture
+### POLYSYS
 
-The retained POLYSYS pathway uses 2041, a US$70 per dry ton biomass-price case, Crop and Pasture land, and seven perennial resources. Duplicate upstream scenario labels are retained for provenance but robustness summaries use three independent allocation families.
+The retained upstream resource allocation uses:
 
-Study-A behavioural transport uses the frozen smooth log-dollar model:
+- year: **2041**;
+- biomass price case: **US$70 per dry ton**;
+- land sources: **Crop** and **Pasture**;
+- seven perennial resources: switchgrass, miscanthus, energy cane, poplar, willow, eucalyptus and pine.
+
+Four source scenario labels are retained for provenance. Two of those labels are exact row-level duplicates in the selected perennial allocation, so robustness summaries use **three independent allocation families** rather than counting the duplicate twice.
+
+POLYSYS `harvest` acreage and `prod` dry tons are treated as source quantities. BioLand-US does not rebuild acreage from reported yields.
+
+### Study-A behavioural experiment
+
+The behavioural component uses a randomized stated-preference experiment on perennial-biomass contracts. The final extensive-margin sample contains:
+
+- **403 respondents**;
+- **1,270 experimental choices**;
+- **356 accepted choices**.
+
+Randomized annual contract payments were **US$50, US$100, US$200 and US$300 per acre per year**, with **5-year** and **10-year** durations.
+
+The primary experimental model treats compensation categorically. A separate smooth log-dollar specification is used for national transport:
 
 ```text
 logit(p) =
@@ -82,72 +121,288 @@ logit(p) =
     + 0.746083 I(Switchgrass)
 ```
 
-Conditional acreage is not made compensation-responsive. The central all-accept representation is 0.863337, with pre-specified lower, IPW and upper representations retained as separate sensitivities.
+Experimental identification and national transport are treated as separate inferential steps.
 
-The explicit feedstock transfer is:
+### Conditional acreage
+
+The central all-accept conditional acreage representation is:
 
 ```text
-Switchgrass, Miscanthus, Energy cane -> experimental Switchgrass archetype
-Poplar, Willow, Eucalyptus, Pine      -> experimental Poplar archetype
+s = 0.863337
 ```
 
-The active institutional specification is `T1_POOLED_BEHAVIOURAL_TRANSMISSION`. T2-T4 remain explicitly deferred rather than being assigned unsupported national weights.
+Lower, IPW and upper representations are retained as structural sensitivities. No additional national compensation response is imposed on the intensive margin.
 
-## Scientific guardrails
+### Feedstock transfer
 
-- POLYSYS is fixed upstream; BioLand-US does not re-optimize it.
-- Several feedstocks may draw on one county-by-land contractual-capacity pool.
-- `b = p × s` is a landholder-level behavioural response, not automatically national accessible acreage.
-- Unsupported rent cells remain unsupported and are never recoded to zero.
-- Zero contractual capacity with positive upstream acreage gives `rho = inf` and `lambda = 0`.
-- Statistical bootstrap uncertainty and structural sensitivity remain separate.
-- Maps describe spatial implementation exposure under transported experimental behaviour, not observed county willingness.
-- Plotting code does not re-estimate the model.
+Study A directly evaluates switchgrass and poplar. The national model therefore uses an explicit treatment-class transfer:
 
-## Data boundary
+```text
+Switchgrass, Miscanthus, Energy cane
+    → Switchgrass experimental archetype
 
-Restricted KBS respondent-level data are not redistributed. Public and restricted input contracts are documented under `data/` and `docs/`. No restricted microdata should ever be committed.
+Poplar, Willow, Eucalyptus, Pine
+    → Poplar experimental archetype
+```
 
-## Installation
+This is a modelling assumption for transport. It is not evidence that respondents directly evaluated the untested species.
+
+### Compatible land
+
+The central county land base is derived from the 2022 Census of Agriculture:
+
+```text
+Crop =
+    total cropland
+    - cropland pastured only
+
+Pasture =
+    cropland pastured only
+    + pastureland excluding cropland and woodland
+```
+
+Disclosure-suppressed values are not treated as zero. The final completion layer carries `JOINT_EQUAL`, `JOINT_OWNED` and `JOINT_RENTED` surfaces, with `JOINT_EQUAL` as the central deterministic case.
+
+### Rent context
+
+Cash-rent context follows a fixed evidence hierarchy:
+
+1. county, same land type, 2022;
+2. nearest same-county observation within ±3 years;
+3. official same-land state estimate for 2022;
+4. unsupported.
+
+Supported values are converted to **2012 U.S. dollars** before behavioural transport. Unsupported cells remain missing.
+
+## Compensation scenarios
+
+Two scenario families are reported.
+
+### Experiment-anchored
+
+```text
+US$50
+US$100
+US$200
+US$300 per acre per year
+```
+
+### Rent-indexed
+
+```text
+offer = m × county cash rent
+```
+
+with:
+
+```text
+m = 1.0000
+m = 3.3544
+m = 6.7088
+m = 13.4175
+m = 20.1263
+```
+
+The `m = 6.7088` case is the **support-balanced reference**. It is not interpreted as an equilibrium price or policy optimum.
+
+## Institutional transmission
+
+The identified quantitative analysis implements:
+
+```text
+T1_POOLED_BEHAVIOURAL_TRANSMISSION
+```
+
+Potential T2-T4 role-differentiated alternatives remain explicitly unquantified because defensible national role-control formulas and weights have not been frozen. The repository does not assign arbitrary values to them.
+
+## Selected results
+
+The values below are reporting outputs from the completed identified analysis. They are prospective implementation results under stated assumptions, not forecasts of observed farmer adoption.
+
+### Experiment-anchored compensation
+
+Family-balanced, 5-year bootstrap medians:
+
+| Annual offer, 2012 US$/acre/year | Biomass mobilized, M_Q |
+|---:|---:|
+| 50 | 57.1% |
+| 100 | 80.9% |
+| 200 | 96.0% |
+| 300 | 98.6% |
+
+### Rent-indexed compensation
+
+Family-balanced, 5-year bootstrap medians:
+
+| Rent multiplier | Biomass mobilized, M_Q |
+|---:|---:|
+| 1.0000 | 31.4% |
+| 3.3544 | 60.6% |
+| 6.7088 | 78.5% |
+| 13.4175 | 92.0% |
+| 20.1263 | 96.1% |
+
+For the support-balanced reference (`m = 6.7088`, 5-year):
+
+- median `M_Q`: **78.46%**;
+- paired respondent-bootstrap 95% interval: **70.34% to 86.08%**;
+- implemented structural range: **63.47% to 83.81%**;
+- three independent POLYSYS-family medians: **76.17% to 81.54%**;
+- corresponding 10-year median: **76.62%**.
+
+Statistical uncertainty and structural sensitivity are reported separately and are not combined into a single interval.
+
+Additional manuscript-facing result tables are available under [`results/`](results/).
+
+## Spatial interpretation
+
+County maps describe **spatial implementation exposure under nationally transported experimental behaviour**. They are not maps of observed county willingness.
+
+Spatial outputs include:
+
+- implementation pressure;
+- probability of contractual capacity binding;
+- probability of top-decile implementation risk;
+- unmet biomass;
+- structural disagreement;
+- cross-family hotspot stability.
+
+## Repository structure
+
+```text
+BioLand-US/
+├── config/
+├── data/
+│   ├── README.md
+│   ├── source_registry.csv
+│   └── frozen/
+├── docs/
+├── results/
+│   ├── manuscript/
+│   ├── figures/
+│   └── validation/
+├── scripts/
+│   ├── 00_run_core.py
+│   ├── 01_validate_behaviour.py
+│   ├── 02_prepare_polysys.py
+│   ├── 03_prepare_land.py
+│   ├── 04_prepare_rents.py
+│   ├── 05_build_behavioural_access.py
+│   ├── 06_run_mobilization.py
+│   ├── 07_run_bootstrap.py
+│   ├── 08_run_structural_sensitivity.py
+│   ├── 09_build_spatial_outputs.py
+│   └── 10_make_figures.py
+├── src/bioland_us/
+├── stata/
+│   ├── 00_run_behaviour.do
+│   ├── 01_prepare_behaviour.do
+│   ├── 02_estimate_participation.do
+│   ├── 03_reconstruct_conditional_acreage.do
+│   ├── 04_export_behaviour.do
+│   └── 05_validate_behaviour.do
+├── tests/
+├── CITATION.cff
+├── LICENSE
+├── pyproject.toml
+└── README.md
+```
+
+## Data and access
+
+The repository does not redistribute restricted Study-A respondent-level microdata.
+
+Public-source provenance, clean local names and SHA-256 checksums are recorded in [`data/source_registry.csv`](data/source_registry.csv). Raw third-party downloads remain local and are gitignored.
+
+See:
+
+- [`data/README.md`](data/README.md)
+- [`docs/data_inputs.md`](docs/data_inputs.md)
+- [`docs/reproducibility.md`](docs/reproducibility.md)
+
+## Reproducing the analysis
+
+### Installation
 
 ```bash
 git clone https://github.com/ElvisKwameOfori123/BioLand-US.git
 cd BioLand-US
+
 python -m venv .venv
+
+# Windows
 .venv\Scripts\activate
+
 pip install -e .
 ```
 
-## Reproduction
+### Behavioural estimation
 
-Behavioural analysis:
+After placing authorized restricted behavioural inputs locally:
 
 ```stata
 do stata/00_run_behaviour.do
 ```
 
-Public-source preparation, when rebuilding canonical inputs:
+### Public-source preparation
 
 ```bash
 python scripts/02_prepare_polysys.py --input <retained_polysys_csv>
-python scripts/03_prepare_land.py --input <completed_census_components_csv>
+python scripts/03_prepare_land.py --input <completed_census_land_csv>
 python scripts/04_prepare_rents.py --county <county_rents_csv> --state <state_rents_csv> --cpi <cpi_csv>
 ```
 
-Deterministic core:
+### Deterministic national core
 
 ```bash
 python scripts/00_run_core.py
 ```
 
-Uncertainty, robustness and figures:
+### Statistical uncertainty
 
 ```bash
 python scripts/07_run_bootstrap.py
+```
+
+### Structural sensitivity
+
+```bash
 python scripts/08_run_structural_sensitivity.py
+```
+
+### Spatial robustness
+
+```bash
 python scripts/09_build_spatial_outputs.py
+```
+
+### Figures
+
+```bash
 python scripts/10_make_figures.py
 ```
+
+## Scientific safeguards
+
+The clean workflow enforces the following rules:
+
+- no POLYSYS re-optimization;
+- no double use of county-by-land capacity across feedstocks;
+- no conversion of unsupported rent to zero;
+- no arbitrary finite replacement for infinite implementation pressure;
+- no mixing of statistical bootstrap uncertainty with structural sensitivity;
+- no claim that treatment-class transfer equals direct experimental evidence;
+- no quantitative T2-T4 institutional scenarios without defensible national parameters;
+- no interpretation of county maps as locally estimated willingness;
+- no redistribution of restricted respondent-level data.
+
+## Manuscript and citation
+
+The associated manuscript is **in preparation**. A manuscript citation and DOI will be added after public release.
+
+Until then, cite the software repository using [`CITATION.cff`](CITATION.cff).
+
+Repository documentation is intentionally written separately from the manuscript and may use different wording from the final paper.
 
 ## Author
 
