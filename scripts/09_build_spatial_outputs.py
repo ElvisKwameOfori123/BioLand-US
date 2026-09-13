@@ -48,7 +48,7 @@ def main() -> None:
     )
     parser.add_argument(
         "--scenario-id",
-        default="RENT_M_6.7088",
+        default="SUPPORT_BALANCED_REFERENCE",
         help="Support-balanced scenario id in the deterministic clean pipeline.",
     )
     parser.add_argument(

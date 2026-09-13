@@ -61,11 +61,9 @@ def main() -> None:
         how="left",
         validate="m:1",
     )
-    if x["B"].isna().any():
-        raise ValueError("Some resource pools have no compatible-land denominator.")
-
-    # T1 pooled behavioural transmission: kappa = b.
-    # Missing kappa is preserved for unsupported rent-context cells.
+    # Missing land or behavioural access remains unresolved. The mobilization
+    # engine carries those cells into full-denominator lower/upper bounds rather
+    # than silently setting them to zero.
     x["K"] = x["B"] * x["kappa"]
 
     out = apply_capacity_constraint(x)

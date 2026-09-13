@@ -139,7 +139,17 @@ def apply_capacity_constraint(capacity: pd.DataFrame) -> pd.DataFrame:
 
 def national_summary(constrained: pd.DataFrame) -> pd.DataFrame:
     """Aggregate results to scenario × family × duration with full-denominator bounds."""
-    keys = ["scenario_id", "allocation_family", "contract_years"]
+    keys = [
+        column
+        for column in [
+            "track",
+            "scenario_id",
+            "rent_multiplier",
+            "allocation_family",
+            "contract_years",
+        ]
+        if column in constrained.columns
+    ]
 
     def summarise(g: pd.DataFrame) -> pd.Series:
         q_p = float(g["Q_P"].sum())
