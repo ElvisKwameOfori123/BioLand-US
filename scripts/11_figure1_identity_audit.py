@@ -17,7 +17,7 @@ import pandas as pd
 
 ROOT = Path(os.environ.get("BIOLAND_PROJECT", str(Path.cwd())))
 TRACK_A = ROOT / "data" / "interim" / "BioLandUS_07E_ExperimentAnchoredBehaviouralAccess.csv"
-WORKBOOK = ROOT / "results" / "figures" / "BioLandUS_FigureWorkbook_v5_FINAL.xlsx"
+WORKBOOK = ROOT / "results" / "figures" / "BioLandUS_FigureWorkbook_v3_FINAL.xlsx"
 OUTDIR = ROOT / "results" / "validation"
 OUTFILE = OUTDIR / "figure1_access_identity.csv"
 
