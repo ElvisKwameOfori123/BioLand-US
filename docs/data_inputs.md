@@ -1,57 +1,50 @@
 # Data inputs
 
-The exact source-file ledger and SHA-256 checksums are recorded in [`data/source_registry.csv`](../data/source_registry.csv).
+The exact source-file ledger and SHA-256 checksums are recorded in
+[`data/source_registry.csv`](../data/source_registry.csv).
 
 BioLand-US separates raw source acquisition from manuscript-facing analysis.
-The clean scripts operate on documented canonical inputs rather than on every
-vendor-specific raw layout used during development.
+The clean scripts operate on documented canonical inputs rather than replaying
+every vendor-specific development layout.
 
 ## Restricted behavioural inputs
 
 Restricted Study-A microdata are not distributed in this repository.
 
-Expected local files include:
+The behavioural pipeline validates the final 1,270-choice / 403-respondent
+extensive sample and the frozen intensive-margin architecture before exporting
+canonical inputs for Python.
 
-```text
-data/restricted/KBS_A_PerennialChoices_LONG_RESTRICTED.dta
-data/restricted/KBS_A_PerennialChoices_INTENSIVE_CENTRAL_RESTRICTED.dta
-```
+The randomized monetary treatment is an **annual land-rental offer per acre per year**
+at US$50, US$100, US$200 or US$300, with 5- or 10-year contract duration.
 
-The Stata pipeline validates the final 1,270-choice / 403-respondent extensive
-sample and the frozen intensive-margin architecture before exporting canonical
-behavioural inputs for Python.
+For rent-context sensitivity, a locally held restricted rent-matched Study-A file is
+used by `stata/06_export_transport_sensitivity.do`. That script exports coefficients
+only; respondent-level data remain restricted.
 
 ## POLYSYS allocation
 
-The Python preparation script accepts the frozen retained perennial allocation
-and standardizes it to:
+The retained perennial allocation is standardized to:
 
-- `scenario_name` when available;
-- `allocation_family`;
-- `fips`;
-- `land_type`;
-- `feedstock`;
-- `A_P`, harvested acres;
-- `Q_P`, dry tons.
+- scenario / independent allocation family;
+- county FIPS;
+- land type;
+- feedstock;
+- harvested acres;
+- dry-ton production.
 
-The clean analysis uses three independent allocation families. The
-`emerging` and `mature-market high` source labels are verified as exact
-allocation duplicates before one representative is retained.
+The clean analysis uses three independent allocation families. The `emerging` and
+`mature-market high` source labels are verified as exact allocation duplicates before
+one representative is retained.
+
+The POLYSYS biomass price is an upstream biomass-market condition and is analytically
+distinct from the KBS annual land-rental offer.
 
 ## Census compatible land
 
-Preferred input is the frozen joint Census land-base table containing:
-
-- `B_crop_equal_acres`, `B_pasture_equal_acres`;
-- `B_crop_owned_acres`, `B_pasture_owned_acres`;
-- `B_crop_rented_acres`, `B_pasture_rented_acres`.
-
-`JOINT_EQUAL` is the central deterministic surface. `JOINT_OWNED` and
-`JOINT_RENTED` are structural sensitivities.
-
-The difficult disclosure-suppression completion is upstream of the public
-manuscript-facing calculation. The clean code does not replay failed or
-superseded completion algorithms.
+The central compatible-land surface uses the frozen JOINT_EQUAL completion. JOINT_OWNED
+and JOINT_RENTED are alternative **disclosure-suppression completion structures**, not
+owner-operated and tenant-operated tenure categories.
 
 ## Cash-rent context
 
@@ -62,32 +55,41 @@ The rent hierarchy is:
 3. official USDA/NASS state 2022 value for the same land type;
 4. unsupported.
 
-Supported rents are converted to 2012 US dollars. Unsupported cells remain
-missing and are never interpreted as zero rent or zero participation.
+Supported rents are converted to 2012 US dollars. Unsupported cells remain missing and
+are never interpreted as zero rent or zero participation.
 
-Canonical county/state rent inputs use:
+Rent-indexed land-access offers are generated as `O = m × R`.
 
-- `fips` where applicable;
-- `state_ansi`;
-- `land_type`;
-- `year`;
-- `rent_usd_per_acre`.
+## Behavioural robustness outputs
 
-The CPI table uses `year` and `cpi`.
+`scripts/10_transport_robustness.py` requires coefficient exports from
+`stata/06_export_transport_sensitivity.do` and propagates:
+
+- primary absolute-dollar transport;
+- pure offer/rent stress test;
+- unrestricted offer + local-rent sensitivity.
+
+`scripts/11_figure1_identity_audit.py` verifies the frozen `b = p × s` identity.
+
+`scripts/12_support_bounded_extrapolation.py` uses the experiment-anchored Stage 07E
+boundary probabilities to impose monotonic bounds outside US$50 to US$300 while leaving
+within-support participation unchanged.
 
 ## County geometry
 
-County geometry is used only for spatial joins and manuscript maps. The figure
-script searches `data/raw/` for the 2022 county geometry and does not embed a
-user-specific absolute path.
+County geometry is used only for spatial joins and manuscript maps.
 
 ## Reporting workbook
 
-The plotting script expects the frozen manuscript reporting workbook at:
+The final reporting-layer target is:
 
 ```text
-results/figures/BioLandUS_FigureData.xlsx
+results/figures/BioLandUS_FigureWorkbook_v7_FINAL.xlsx
 ```
 
-The workbook must contain its reconciliation checks, style guide and the
-figure-ready tables required by `scripts/10_make_figures.py`.
+The workbook contains reconciliation checks, style information and figure-ready tables.
+It is not the authoritative scientific computation layer.
+
+Absolute Figure 4 quantities use county-level means across independent allocation
+families represented in each county. Alternative upstream families must not be summed
+as though they were simultaneous physical supplies.
