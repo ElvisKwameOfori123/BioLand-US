@@ -6,7 +6,7 @@
 
 ## Project overview
 
-BioLand-US is a spatially explicit ex ante implementation model that links a fixed upstream perennial-biomass allocation to county agricultural land, contract compensation, experimentally estimated landholder responses and an explicit institutional transmission rule.
+BioLand-US is a spatially explicit ex ante implementation model that links a fixed upstream perennial-biomass allocation to county agricultural land, annual land-rental offers, experimentally estimated landholder responses and an explicit institutional transmission rule.
 
 The model asks whether biomass acreage that is economically allocated in POLYSYS can also be supported by the land and voluntary contractual participation required for implementation.
 
@@ -108,7 +108,7 @@ The behavioural component uses a randomized stated-preference experiment on pere
 - **1,270 experimental choices**;
 - **356 accepted choices**.
 
-Randomized annual contract payments were **US$50, US$100, US$200 and US$300 per acre per year**, with **5-year** and **10-year** durations.
+Randomized annual land-rental offers were **US$50, US$100, US$200 and US$300 per acre per year**, with **5-year** and **10-year** contract durations. These rental offers are analytically distinct from the POLYSYS biomass farmgate price.
 
 The primary experimental model treats compensation categorically. A separate smooth log-dollar specification is used for national transport:
 
@@ -174,7 +174,7 @@ Cash-rent context follows a fixed evidence hierarchy:
 
 Supported values are converted to **2012 U.S. dollars** before behavioural transport. Unsupported cells remain missing.
 
-## Compensation scenarios
+## Land-rental offer scenarios
 
 Two scenario families are reported.
 
@@ -203,7 +203,7 @@ m = 13.4175
 m = 20.1263
 ```
 
-The `m = 6.7088` case is the **support-balanced reference**. It is not interpreted as an equilibrium price or policy optimum.
+The `m = 6.7088` case is the **national support-balanced reference**. It balances experimental monetary support across the combined production allocation and is not interpreted as an equilibrium price, policy optimum or land-class-specific optimum.
 
 ## Institutional transmission
 
@@ -253,7 +253,11 @@ BioLand-US/
 │   ├── 07_run_bootstrap.py
 │   ├── 08_run_structural_sensitivity.py
 │   ├── 09_build_spatial_outputs.py
-│   └── 10_make_figures.py
+│   ├── 10_transport_robustness.py
+│   ├── 11_figure1_identity_audit.py
+│   ├── 12_support_bounded_extrapolation.py
+│   ├── 13_build_figure_workbook.py
+│   └── 14_make_figures.py
 ├── src/bioland_us/
 ├── stata/
 │   ├── 00_run_behaviour.do
@@ -261,7 +265,8 @@ BioLand-US/
 │   ├── 02_estimate_participation.do
 │   ├── 03_reconstruct_conditional_acreage.do
 │   ├── 04_export_behaviour.do
-│   └── 05_validate_behaviour.do
+│   ├── 05_validate_behaviour.do
+│   └── 06_export_transport_sensitivity.do
 ├── tests/
 ├── CITATION.cff
 ├── LICENSE
@@ -337,11 +342,30 @@ python scripts/08_run_structural_sensitivity.py
 python scripts/09_build_spatial_outputs.py
 ```
 
-### Figures
+### Behavioural transport and evidence-support robustness
+
+After the restricted rent-matched Study-A file is available locally:
+
+```stata
+do stata/06_export_transport_sensitivity.do
+```
+
+Then run:
 
 ```bash
-python scripts/10_make_figures.py
+python scripts/10_transport_robustness.py
+python scripts/11_figure1_identity_audit.py
+python scripts/12_support_bounded_extrapolation.py
 ```
+
+### Reporting workbook and figures
+
+```bash
+python scripts/13_build_figure_workbook.py
+python scripts/14_make_figures.py
+```
+
+The workbook builder owns the reporting layer. The plotting script is read-only.
 
 ## Scientific safeguards
 
