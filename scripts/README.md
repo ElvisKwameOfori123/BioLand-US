@@ -18,7 +18,8 @@ structural sensitivity, behavioural-transport robustness and manuscript reportin
 | `10_transport_robustness.py` | Propagate absolute-dollar, offer/rent and offer+rent transport specifications; report Crop/Pasture heterogeneity |
 | `11_figure1_identity_audit.py` | Verify `b = p × s` and audit the Figure 1c aggregation |
 | `12_support_bounded_extrapolation.py` | Bound out-of-support behaviour using monotonicity only |
-| `10_make_figures.py` | Legacy plotting entrypoint retained temporarily while the final five-figure reporting layer is synchronized |
+| `13_build_figure_workbook.py` | Import audited outputs into the frozen v7 reporting workbook and run reporting checks |
+| `14_make_figures.py` | Read the frozen v7 workbook and draw the five main figures plus Extended Data Figure 1; does not write to the workbook |
 
 Reusable scientific functions live in `src/bioland_us/`.
 
@@ -43,3 +44,23 @@ For the national support-balanced reference (`m = 6.7088`, 5-year contract, fami
 - pure offer/rent stress test: about 98.27%, reported separately because the ratio restriction is rejected.
 
 The primary transport is hard-reconciled to frozen Stage 07G before robustness outputs are accepted.
+
+## Reporting architecture
+
+The scientific direction is one-way:
+
+```text
+frozen upstream outputs
+        ↓
+10-12 robustness / audit
+        ↓
+13_build_figure_workbook.py
+        ↓
+BioLandUS_FigureWorkbook_v7_FINAL.xlsx
+        ↓
+14_make_figures.py
+        ↓
+Figures 1-5 + Extended Data Figure 1
+```
+
+The plotting script is read-only with respect to the workbook.
