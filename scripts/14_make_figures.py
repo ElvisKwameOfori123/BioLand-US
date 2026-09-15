@@ -217,7 +217,7 @@ def main():
     unmet_bins=[0,10,50,150,500,np.inf]
     unmet_labels=["<10","10–50","50–150","150–500","≥500"]
     mb["alloc_class"]=pd.cut(mb.Q_P_mean_kt,bins=alloc_bins,labels=alloc_labels,right=False)
-    mb["unmet_class"]=pd.cut(mb.unmet_Q_mean_kt,bins=unmet_bins,labels=unmet_labels,right=False)
+    mb["unmet_class"]=pd.cut(mb.unmet_Q_mean_kt,bins=unmet_bins,labels=unmet_labels,right=False).astype("object")
     mb.loc[mb.unmet_Q_mean_kt.eq(0),"unmet_class"]="Fully mobilized"
     blues=["#EFF3FF","#C6DBEF","#9ECAE1","#6BAED6","#3182BD","#08519C"]
     reds={"Fully mobilized":"#F2F2F2","<10":"#FEE5D9","10–50":"#FCBBA1","50–150":"#FC9272","150–500":"#EF3B2C","≥500":"#99000D"}
