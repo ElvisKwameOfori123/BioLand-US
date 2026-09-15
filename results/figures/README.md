@@ -1,6 +1,6 @@
 # Figure outputs
 
-The manuscript now uses five main Results figures:
+The manuscript uses five main Results figures:
 
 1. **Behavioural evidence**: participation by annual land-rental offer, conditional acreage among accepters, and identity-consistent behavioural land access.
 2. **National mobilization**: experiment-anchored rental offers, rent-indexed land-access offers, experimental-support exposure, and unmet-biomass concentration.
@@ -11,16 +11,20 @@ The manuscript now uses five main Results figures:
 The main manuscript remains at five figures plus one table. Crop/Pasture heterogeneity
 and the full behavioural-transport comparison are supplementary/Extended Data outputs.
 
-## Current reporting workbook
-
-The frozen reporting workbook is:
+## Final reporting workflow
 
 ```text
+scripts/13_build_figure_workbook.py
+        ↓
 results/figures/BioLandUS_FigureWorkbook_v7_FINAL.xlsx
+        ↓
+scripts/14_make_figures.py
+        ↓
+results/figures/main/
 ```
 
-The workbook is a reporting layer. Scientific calculations are generated upstream
-and imported with reconciliation checks.
+The builder imports audited upstream outputs and writes the reporting workbook.
+The plotter is read-only and performs no scientific model calculation.
 
 Key additions in v7 are:
 
@@ -31,6 +35,6 @@ Key additions in v7 are:
 - transport-robustness and support-bounded supplementary tables;
 - family-mean absolute-quantity fields for Figure 4.
 
-The historical `scripts/10_make_figures.py` entrypoint predates the final five-figure
-architecture and is retained only as a legacy reference until the final submission
-plotter is synchronized.
+Absolute Figure 4 quantities are county means across independent allocation families
+represented in each county. Alternative upstream allocation families are not summed as
+though they were simultaneous physical supplies.
