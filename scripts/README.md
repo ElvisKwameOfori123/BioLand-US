@@ -1,6 +1,7 @@
 # Python analysis scripts
 
-The manuscript-facing Python workflow is intentionally shorter than the development pipeline.
+BioLand-US separates the deterministic implementation core, statistical uncertainty,
+structural sensitivity, behavioural-transport robustness and manuscript reporting.
 
 | Script | Purpose |
 |---|---|
@@ -12,19 +13,33 @@ The manuscript-facing Python workflow is intentionally shorter than the developm
 | `05_build_behavioural_access.py` | Evaluate participation, conditional acreage and `b = p × s` |
 | `06_run_mobilization.py` | Compute contractual capacity and biomass mobilization under T1 |
 | `07_run_bootstrap.py` | Paired respondent bootstrap for statistical uncertainty |
-| `08_run_structural_sensitivity.py` | Evaluate implemented structural alternatives |
+| `08_run_structural_sensitivity.py` | Evaluate implemented intensive-margin × land-completion alternatives |
 | `09_build_spatial_outputs.py` | Create county-level spatial robustness outputs |
-| `10_make_figures.py` | Draw manuscript figures from frozen reporting outputs |
+| `10_transport_robustness.py` | Propagate absolute-dollar, offer/rent and offer+rent transport specifications; report Crop/Pasture heterogeneity |
+| `11_figure1_identity_audit.py` | Verify `b = p × s` and audit the Figure 1c aggregation |
+| `12_support_bounded_extrapolation.py` | Bound out-of-support behaviour using monotonicity only |
+| `10_make_figures.py` | Legacy plotting entrypoint retained temporarily while the final five-figure reporting layer is synchronized |
 
 Reusable scientific functions live in `src/bioland_us/`.
 
-## Boundaries
+## Scientific boundaries
 
-- `02-04` are source-preparation utilities and require explicit source files.
-- `05-06` form the deterministic implementation core.
-- `07` is statistical uncertainty only.
-- `08` is structural sensitivity only.
-- `09` builds map-ready evidence without re-estimating behaviour.
-- `10` is plotting only.
-- T2-T4 remain deferred until defensible national formulas and weights exist.
+- The randomized KBS monetary treatment is interpreted as an **annual land-rental offer per acre per year**, not a biomass farmgate price.
+- The primary participation transport remains the frozen absolute-dollar model.
+- The pure offer/rent specification is a stress test. Its proportionality restriction is rejected in the rent-matched experimental sample (`p = 0.0002`).
+- The unrestricted offer+rent specification is the preferred rent-context robustness test.
+- The evidence-bounded analysis leaves within-support participation unchanged and uses monotonic bounds only below US$50 and above US$300.
+- T2-T4 institutional alternatives remain deferred until defensible national formulas and weights exist.
 - Unsupported rent remains missing, never zero.
+- Statistical, structural, transport, evidence-support, allocation-family and contract-duration sensitivities remain separate classes rather than being combined into one interval.
+
+## Current headline robustness checks
+
+For the national support-balanced reference (`m = 6.7088`, 5-year contract, family-balanced):
+
+- primary deterministic `M_Q`: about 78.67%;
+- unrestricted offer+rent sensitivity: about 75.91%;
+- evidence-bounded monotonic interval: about 72.47% to 81.91%;
+- pure offer/rent stress test: about 98.27%, reported separately because the ratio restriction is rejected.
+
+The primary transport is hard-reconciled to frozen Stage 07G before robustness outputs are accepted.
