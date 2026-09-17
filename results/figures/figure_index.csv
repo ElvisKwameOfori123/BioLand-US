@@ -1,14 +1,16 @@
 figure,panel,title,message,sheet
 Figure 1,a,Participation,Contract participation rises with compensation.,F2Pa_Participation
-Figure 1,b,Conditional acreage,Conditional acreage is high and comparatively stable.,F2Pb_AcreageSummary
+Figure 1,b,Conditional acreage,Conditional acreage is high and comparatively stable among accepted contracts.,F2Pb_AcreageSummary
 Figure 1,c,Behavioural access,Expected behavioural access rises with compensation.,F2Pc_Access
 Figure 2,a,Experiment-anchored mobilization,Prospective biomass mobilization rises steeply with compensation.,F3Pa_ExperimentMQ
 Figure 2,b,Rent-indexed mobilization,Rent parity mobilizes only a minority of prospective biomass.,F3Pb_RentIndexMQ
 Figure 2,c,Experimental-support exposure,Higher rent multipliers increasingly require extrapolation above the experimental range.,F3Pc_SupportExposure
 Figure 2,d,Unmet-biomass concentration,The national implementation deficit is concentrated in a small share of counties.,F3Pd_UnmetConcentration
-Figure 3,a,Uncertainty ladder,Structural specification is the largest implemented source of variation.,F4_UncertaintyLadder
+Figure 3,a,Uncertainty and sensitivity,Structural specification is the largest implemented source of variation.,F4_UncertaintyLadder
 Figure 3,b,Feedstock evidence coverage,Direct experimental support is separated from treatment-class transfer.,F4_FeedstockCoverage
-Figure 4,a,Implementation pressure,County contractual pressure relative to the binding threshold.,MapA_Pressure
-Figure 4,b,Probability of binding,Bootstrap probability that contractual capacity binds.,MapC_Consensus
-Figure 4,c,Top-risk membership,Probability of persistent membership in the top-risk decile.,MapC_Consensus
-Figure 4,d,Hotspot consensus,Robust hotspot agreement across independent POLYSYS families.,MapC_Consensus
+Figure 4,a,Prospective biomass allocation,Prospective allocation identifies where upstream biomass is located before contractual constraints.,MapB_Unmet
+Figure 4,b,Unmet prospective biomass,Contractual shortfall is spatially distinct from prospective resource abundance.,MapB_Unmet
+Figure 5,a,Implementation pressure,County contractual pressure is reported relative to the binding threshold.,MapA_Pressure
+Figure 5,b,Probability of binding,Bootstrap probability that contractual capacity binds.,MapC_Consensus
+Figure 5,c,Top-risk membership,Probability of persistent membership in the highest-risk decile.,MapC_Consensus
+Figure 5,d,Hotspot consensus,Robust hotspot agreement is evaluated across independent POLYSYS allocation families.,MapC_Consensus
