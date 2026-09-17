@@ -1,22 +1,23 @@
 # Frozen canonical data
 
-This directory is reserved for the small canonical tables used by the clean
-manuscript pipeline.
+This directory separates small public inputs that are safe to version from larger generated or restricted analytical products.
 
-Public, non-disclosive tables may be versioned here when redistribution is
-permitted. Restricted respondent-level tables must remain local and gitignored.
+## Bundled now
 
-Expected public tables include:
+`public/` contains:
 
 ```text
-public/polysys_allocation.csv
-public/compatible_land.csv
-public/rent_context.csv
-public/behavioural_access.csv
-public/land_structures/JOINT_EQUAL.csv
-public/land_structures/JOINT_OWNED.csv
-public/land_structures/JOINT_RENTED.csv
+cpi_u_annual.csv
+behaviour_parameters_public.csv
+README.md
 ```
 
-Do not place raw vendor downloads, literature supplements, obsolete prototype
-tables or KBS respondent-level records in this directory.
+These are non-disclosive and are part of the public reproducibility package.
+
+## Generated locally
+
+County-level canonical tables derived from large USDA/ORNL sources are generated locally and are not assumed to exist in a fresh clone. Typical outputs include the cleaned POLYSYS allocation, compatible Census land surfaces, rent context and behavioural-access tables. Their source files and checksums are documented in `../source_registry.csv`, and source acquisition is described in `../../docs/data_access.md`.
+
+Restricted respondent-level or respondent-derived tables must remain under `frozen/restricted/` locally and must never be committed.
+
+Do not place raw vendor/provider downloads, literature supplements, obsolete prototype tables or KBS respondent-level records in this directory.
