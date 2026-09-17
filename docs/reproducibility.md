@@ -1,102 +1,83 @@
-# Reproducibility design
+# BioLand-US reproducibility
 
-This document explains how the public BioLand-US repository differs from the longer development pipeline used to build and audit the model.
+BioLand-US separates scientific calculation from reporting so that presentation changes cannot silently alter frozen results.
 
-## Development code versus public reproducibility code
+## Reproducibility layers
 
-The development project intentionally used many small stage scripts and diagnostic gates. That was useful for forensic reconstruction, source auditing, and freezing scientific decisions. It is not the best interface for other researchers.
+The public repository contains:
 
-The public repository therefore follows two rules:
+1. clean Python and Stata analysis scripts;
+2. reusable package functions under `src/bioland_us/`;
+3. unit tests for behavioural response, feedstock transfer, mobilization and validation rules;
+4. public-source provenance and SHA-256 checksums;
+5. non-disclosive manuscript-facing outputs;
+6. reconciliation checks for the frozen reporting results;
+7. an automated GitHub Actions workflow that runs the core unit-test suite on pushes and pull requests to `main`.
 
-1. **Preserve the frozen scientific decisions.**
-2. **Remove development redundancy.**
+Restricted respondent-level Study-A microdata are not redistributed. The final reporting workbook is also treated as a generated local artefact because its seed and several upstream products depend on the authorized restricted-data workflow. This does not change the frozen scientific values retained in the public manuscript-facing tables and validation ledger.
 
-The clean workflow should reproduce the frozen outputs without requiring users to understand every exploratory stage that preceded them.
+## Core execution order
 
-## Clean stage boundaries
-
-### 01 Behaviour
-
-Prepare the experimental choice data and reproduce the frozen extensive- and intensive-margin quantities.
-
-### 02 POLYSYS
-
-Prepare the retained 2041 perennial allocation at US$70 per dry ton and identify the three independent allocation families.
-
-### 03 Land
-
-Construct the compatible county Crop and Pasture pools and apply the frozen Census completion rules.
-
-### 04 Rent
-
-Build the county-by-land 2012-dollar rent context using the frozen evidence hierarchy.
-
-### 05 Behavioural access
-
-Evaluate participation at the relevant offers and combine it with the frozen conditional-acreage representation:
-
-```
-b = p * s
+```text
+restricted behavioural estimation (Stata)
+        ↓
+public-source preparation
+        ↓
+deterministic national core
+        ↓
+bootstrap + structural sensitivity
+        ↓
+spatial robustness
+        ↓
+transport and evidence-support robustness
+        ↓
+reporting workbook builder
+        ↓
+read-only plotting script
 ```
 
-Behavioural access is not yet national acreage access.
+## Tests
 
-### 06 Capacity and mobilization
+Install development dependencies and run:
 
-Apply the implemented transmission assumption, compute contractual capacity once per county-by-land pool, and compare it with the upstream acreage requirement.
-
-```
-K = B * kappa
-rho = A_polysys / K
-lambda = min(1, K / A_polysys)
-A_mobilized = lambda * A_polysys
-Q_mobilized = lambda * Q_polysys
+```bash
+pip install -e ".[dev]"
+python -m pytest
 ```
 
-Zero-capacity cells are explicitly retained as binding.
+The same test suite is configured in `.github/workflows/ci.yml`.
 
-### 07 Statistical uncertainty
+## Frozen reporting checks
 
-Use paired respondent-level bootstrap draws so the same resampled respondents determine the extensive and intensive margins.
+`results/validation/reconciliation_checks.csv` records the manuscript-facing checks, including:
 
-### 08 Structural sensitivity
+- family-balanced experiment reconciliation;
+- support shares summing to 100%;
+- county-to-national mobilization reconciliation;
+- mobilized plus unmet biomass equalling upstream biomass;
+- five-character county FIPS handling;
+- explicit undefined-capacity display class;
+- exactly 12 implemented structural variants;
+- negligible intensive lower/upper gap;
+- exactly 1,000 bootstrap draws.
 
-Evaluate structural alternatives separately from statistical resampling.
+The reporting builder adds further checks for the Figure 1 identity, family-mean spatial accounting, the primary transport reconciliation and evidence-bounded interval.
 
-### 09 Spatial robustness
+## Data boundaries
 
-Create county-level implementation pressure, probability of binding, top-risk probability, and hotspot-consensus outputs.
+Raw public third-party data remain local and are documented in `data/source_registry.csv`. Restricted Study-A respondent records must never be committed. Unsupported rent cells remain missing rather than being recoded to zero.
 
-### 10 Figures
+## Reporting workbook
 
-Read frozen reporting outputs only. Plotting code must not re-estimate the scientific model.
+Authorized users with the validated seed workbook and frozen upstream outputs can regenerate the reporting layer with:
 
-## Fail-fast validations
+```bash
+python scripts/13_build_figure_workbook.py --seed <validated_seed_workbook.xlsx>
+python scripts/14_make_figures.py --workbook results/figures/BioLandUS_FigureWorkbook_v7_FINAL.xlsx
+```
 
-Every clean stage should fail rather than silently continue when:
+The workbook builder performs reporting arithmetic and checks. The plotting script is read-only and must not be used to alter scientific calculations.
 
-- required columns are absent;
-- expected identifiers are duplicated;
-- bounded probabilities or shares leave [0, 1];
-- unsupported rent cells are converted to zero;
-- mobilized acreage or biomass exceeds the upstream allocation;
-- zero-capacity rules are violated;
-- allocation-family independence is miscounted;
-- bootstrap draw counts are incomplete;
-- structural and statistical uncertainty are accidentally combined.
+## Release principle
 
-## Reproducible paths
-
-No script should contain a user-specific absolute path.
-
-Project paths are resolved relative to the repository root and may be overridden by a local, gitignored configuration file.
-
-## Public release strategy
-
-The repository should be made public only after confirming:
-
-- no restricted survey microdata are present;
-- no temporary files contain respondent-level information;
-- third-party data licences permit any redistributed extracts;
-- the manuscript and repository terminology agree;
-- the public scripts reproduce the archived results and figures from a clean environment.
+The public repository is the clean manuscript-facing implementation, not a dump of every development artifact. Development-only, failed, duplicate, restricted or forensic files are intentionally excluded. The release criterion is that every retained scientific stage is documented, versioned, and traceable to the frozen result rather than that every historical file be published.
