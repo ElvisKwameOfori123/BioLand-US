@@ -232,6 +232,8 @@ Spatial outputs include:
 
 ```text
 BioLand-US/
+├── .github/workflows/
+│   └── ci.yml
 ├── config/
 ├── data/
 │   ├── README.md
@@ -280,6 +282,8 @@ The repository does not redistribute restricted Study-A respondent-level microda
 
 Public-source provenance, clean local names and SHA-256 checksums are recorded in [`data/source_registry.csv`](data/source_registry.csv). Raw third-party downloads remain local and are gitignored.
 
+The final reporting workbook is a generated local artefact, not an analytical input. It is built only after the frozen upstream outputs and authorized restricted-data products are available. The repository therefore versions the builder, plotting code, manuscript-facing result tables and reconciliation ledger rather than redistributing restricted or development-stage inputs.
+
 See:
 
 - [`data/README.md`](data/README.md)
@@ -301,6 +305,15 @@ python -m venv .venv
 
 pip install -e .
 ```
+
+### Core unit tests
+
+```bash
+pip install -e ".[dev]"
+python -m pytest
+```
+
+The same test suite is run automatically by GitHub Actions on pushes and pull requests to `main`.
 
 ### Behavioural estimation
 
@@ -360,12 +373,14 @@ python scripts/12_support_bounded_extrapolation.py
 
 ### Reporting workbook and figures
 
+The final reporting workbook is generated locally from the frozen reporting seed and audited upstream outputs:
+
 ```bash
-python scripts/13_build_figure_workbook.py
-python scripts/14_make_figures.py
+python scripts/13_build_figure_workbook.py --seed <validated_seed_workbook.xlsx>
+python scripts/14_make_figures.py --workbook results/figures/BioLandUS_FigureWorkbook_v7_FINAL.xlsx
 ```
 
-The workbook builder owns the reporting layer. The plotting script is read-only.
+The workbook builder owns the reporting layer. The plotting script is read-only. The seed workbook and restricted upstream products are not treated as public raw data and are not required to interpret the manuscript-facing CSV results retained in this repository.
 
 ## Scientific safeguards
 
