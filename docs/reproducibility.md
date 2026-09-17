@@ -1,6 +1,28 @@
 # BioLand-US reproducibility
 
-BioLand-US separates scientific calculation from reporting so that presentation changes cannot silently alter frozen results.
+BioLand-US separates source acquisition, scientific calculation, restricted behavioural re-estimation and reporting so that presentation changes cannot silently alter frozen results.
+
+## Reviewer verification
+
+A reviewer who wants to verify the public release without obtaining respondent-level data can run:
+
+```bash
+pip install -e ".[dev]"
+python -m pytest
+python scripts/00_verify_release.py
+```
+
+The verification script checks the public manuscript tables, five-figure index, reconciliation ledger, frozen CPI and behavioural-parameter hashes, uncertainty settings and absence of restricted respondent files from the working tree.
+
+## Public source acquisition
+
+Stable public source archives can be retrieved and checksum-verified with:
+
+```bash
+python scripts/00_fetch_public_sources.py
+```
+
+The exact provider links, query-export filenames, access conditions and SHA-256 values are documented in [`data_access.md`](data_access.md) and [`../data/source_registry.csv`](../data/source_registry.csv).
 
 ## Reproducibility layers
 
@@ -9,19 +31,50 @@ The public repository contains:
 1. clean Python and Stata analysis scripts;
 2. reusable package functions under `src/bioland_us/`;
 3. unit tests for behavioural response, feedstock transfer, mobilization and validation rules;
-4. public-source provenance and SHA-256 checksums;
-5. non-disclosive manuscript-facing outputs;
-6. reconciliation checks for the frozen reporting results;
-7. an automated GitHub Actions workflow that runs the core unit-test suite on pushes and pull requests to `main`.
+4. public-source access metadata and SHA-256 checksums;
+5. small bundled public frozen inputs, including CPI anchors and behavioural parameters;
+6. non-disclosive manuscript-facing outputs;
+7. reconciliation checks for the frozen reporting results;
+8. an automated GitHub Actions workflow that runs the core unit-test suite on pushes and pull requests to `main`.
 
-Restricted respondent-level Study-A microdata are not redistributed. The final reporting workbook is also treated as a generated local artefact because its seed and several upstream products depend on the authorized restricted-data workflow. This does not change the frozen scientific values retained in the public manuscript-facing tables and validation ledger.
+Restricted respondent-level Study-A microdata are not redistributed.
 
-## Core execution order
+## Two distinct reproduction goals
+
+### Public national-model reproduction
+
+The deterministic national model uses the frozen non-disclosive behavioural parameters in `config/default.toml` and `data/frozen/public/behaviour_parameters_public.csv`. It does not require respondent-level KBS records merely to evaluate national contractual access and mobilization.
+
+After the documented public spatial inputs have been prepared, run:
+
+```bash
+python scripts/00_run_core.py
+```
+
+### Behavioural re-estimation
+
+Independent re-estimation of the Study-A behavioural models requires the respondent-level KBS source under the applicable data-use terms. After placing authorized inputs locally, run:
+
+```stata
+do stata/00_run_behaviour.do
+```
+
+Restricted behavioural validation can then be added to the national runner explicitly:
+
+```bash
+python scripts/00_run_core.py --validate-restricted-behaviour
+```
+
+This distinction prevents a third-party data-use restriction from being confused with the reproducibility of the public national implementation.
+
+## Analytical execution order
 
 ```text
-restricted behavioural estimation (Stata)
+public source acquisition and canonical preparation
         ↓
-public-source preparation
+restricted behavioural estimation, when independently re-estimating coefficients
+        ↓
+frozen behavioural parameters
         ↓
 deterministic national core
         ↓
@@ -36,20 +89,9 @@ reporting workbook builder
 read-only plotting script
 ```
 
-## Tests
-
-Install development dependencies and run:
-
-```bash
-pip install -e ".[dev]"
-python -m pytest
-```
-
-The same test suite is configured in `.github/workflows/ci.yml`.
-
 ## Frozen reporting checks
 
-`results/validation/reconciliation_checks.csv` records the manuscript-facing checks, including:
+`results/validation/reconciliation_checks.csv` records manuscript-facing checks including:
 
 - family-balanced experiment reconciliation;
 - support shares summing to 100%;
@@ -61,11 +103,11 @@ The same test suite is configured in `.github/workflows/ci.yml`.
 - negligible intensive lower/upper gap;
 - exactly 1,000 bootstrap draws.
 
-The reporting builder adds further checks for the Figure 1 identity, family-mean spatial accounting, the primary transport reconciliation and evidence-bounded interval.
+The reporting builder adds checks for the Figure 1 behavioural identity, family-mean spatial accounting, primary transport reconciliation and evidence-bounded interval.
 
 ## Data boundaries
 
-Raw public third-party data remain local and are documented in `data/source_registry.csv`. Restricted Study-A respondent records must never be committed. Unsupported rent cells remain missing rather than being recoded to zero.
+Large public third-party files remain under the original provider's authority and are kept locally under `data/raw/`. Small frozen public inputs are versioned under `data/frozen/public/`. Restricted Study-A respondent records must never be committed. Unsupported rent cells remain missing rather than being recoded to zero.
 
 ## Reporting workbook
 
@@ -76,8 +118,8 @@ python scripts/13_build_figure_workbook.py --seed <validated_seed_workbook.xlsx>
 python scripts/14_make_figures.py --workbook results/figures/BioLandUS_FigureWorkbook_v7_FINAL.xlsx
 ```
 
-The workbook builder performs reporting arithmetic and checks. The plotting script is read-only and must not be used to alter scientific calculations.
+The workbook builder performs reporting arithmetic and checks. The plotting script is read-only and must not alter scientific calculations.
 
 ## Release principle
 
-The public repository is the clean manuscript-facing implementation, not a dump of every development artifact. Development-only, failed, duplicate, restricted or forensic files are intentionally excluded. The release criterion is that every retained scientific stage is documented, versioned, and traceable to the frozen result rather than that every historical file be published.
+The public repository is the clean manuscript-facing implementation, not a dump of every historical development artefact. Failed, duplicate, obsolete, restricted and forensic-only files are excluded when they are not part of the frozen scientific chain. Every retained manuscript result is instead traceable to a documented source, model stage and validation check.
