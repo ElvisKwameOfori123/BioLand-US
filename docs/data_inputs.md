@@ -1,95 +1,70 @@
-# Data inputs
+# BioLand-US data inputs
 
-The exact source-file ledger and SHA-256 checksums are recorded in
-[`data/source_registry.csv`](../data/source_registry.csv).
+BioLand-US combines public agricultural-resource data with restricted experimental behavioural evidence. This document records the clean input architecture used by the reproducibility repository.
 
-BioLand-US separates raw source acquisition from manuscript-facing analysis.
-The clean scripts operate on documented canonical inputs rather than replaying
-every vendor-specific development layout.
+## Public-source inputs
 
-## Restricted behavioural inputs
+Canonical public inputs are registered in `data/source_registry.csv`, including their clean local names, source filenames, analytical roles, repository treatment and SHA-256 checksums.
 
-Restricted Study-A microdata are not distributed in this repository.
+The identified analysis uses:
 
-The behavioural pipeline validates the final 1,270-choice / 403-respondent
-extensive sample and the frozen intensive-margin architecture before exporting
-canonical inputs for Python.
+- the retained 2041 / US$70 per dry ton POLYSYS perennial-biomass allocation from the 2023 Billion-Ton resource package;
+- the 2022 Census of Agriculture for compatible county Crop and Pasture land;
+- USDA NASS county cash-rent history;
+- official 2022 state cash rents for unsupported county-by-land cells;
+- the U.S. CPI used to express supported rents in 2012 dollars;
+- county geometry for spatial joins and manuscript maps.
 
-The randomized monetary treatment is an **annual land-rental offer per acre per year**
-at US$50, US$100, US$200 or US$300, with 5- or 10-year contract duration.
+Raw third-party downloads remain local under `data/raw/` and are excluded from Git. The source registry provides enough provenance to retrieve and verify the same files where public access remains available.
 
-For rent-context sensitivity, a locally held restricted rent-matched Study-A file is
-used by `stata/06_export_transport_sensitivity.do`. That script exports coefficients
-only; respondent-level data remain restricted.
+## Restricted behavioural input
 
-## POLYSYS allocation
+Study-A respondent-level data are restricted and must never be committed. Authorized local users should place the source archive or approved extracts under the gitignored restricted-data area and run the documented Stata pipeline.
 
-The retained perennial allocation is standardized to:
+The public repository retains only non-disclosive exports, frozen model constants and manuscript-facing summaries that do not redistribute respondent-level records.
 
-- scenario / independent allocation family;
-- county FIPS;
-- land type;
-- feedstock;
-- harvested acres;
-- dry-ton production.
+## Derived canonical inputs
 
-The clean analysis uses three independent allocation families. The `emerging` and
-`mature-market high` source labels are verified as exact allocation duplicates before
-one representative is retained.
+The clean workflow builds explicit derived inputs rather than relying on opaque manual edits. These include:
 
-The POLYSYS biomass price is an upstream biomass-market condition and is analytically
-distinct from the KBS annual land-rental offer.
+- standardized POLYSYS county-by-land-by-feedstock allocation;
+- compatible Census land pools with suppression-aware completion;
+- county-by-land rent context following the frozen hierarchy;
+- behavioural-access tables based on `b = p × s`;
+- county-by-land contractual capacity and mobilization outputs;
+- statistical and structural uncertainty summaries;
+- transport and evidence-support robustness outputs.
 
-## Census compatible land
+Unsupported rent remains missing. Missing evidence is not recoded as zero capacity.
 
-The central compatible-land surface uses the frozen JOINT_EQUAL completion. JOINT_OWNED
-and JOINT_RENTED are alternative **disclosure-suppression completion structures**, not
-owner-operated and tenant-operated tenure categories.
+## Reporting layer
 
-## Cash-rent context
-
-The rent hierarchy is:
-
-1. exact county, same land type, 2022;
-2. same county and land type, nearest year within ±3 years;
-3. official USDA/NASS state 2022 value for the same land type;
-4. unsupported.
-
-Supported rents are converted to 2012 US dollars. Unsupported cells remain missing and
-are never interpreted as zero rent or zero participation.
-
-Rent-indexed land-access offers are generated as `O = m × R`.
-
-## Behavioural robustness outputs
-
-`scripts/10_transport_robustness.py` requires coefficient exports from
-`stata/06_export_transport_sensitivity.do` and propagates:
-
-- primary absolute-dollar transport;
-- pure offer/rent stress test;
-- unrestricted offer + local-rent sensitivity.
-
-`scripts/11_figure1_identity_audit.py` verifies the frozen `b = p × s` identity.
-
-`scripts/12_support_bounded_extrapolation.py` uses the experiment-anchored Stage 07E
-boundary probabilities to impose monotonic bounds outside US$50 to US$300 while leaving
-within-support participation unchanged.
-
-## County geometry
-
-County geometry is used only for spatial joins and manuscript maps.
-
-## Reporting workbook
-
-The final reporting-layer target is:
+The final reporting workbook is generated after the analytical outputs have been frozen. Its target name is:
 
 ```text
 results/figures/BioLandUS_FigureWorkbook_v7_FINAL.xlsx
 ```
 
-The workbook contains reconciliation checks, style information and figure-ready tables.
-It is not the authoritative scientific computation layer.
+The workbook is a reporting artefact rather than a raw analytical input. Its validated seed workbook and several upstream products depend on the authorized restricted-data workflow, so the binary workbook is not required to be redistributed as public raw data. The repository instead versions the workbook builder, the read-only plotting script, manuscript-facing result tables and the reconciliation ledger.
 
-Absolute Figure 4 quantities use county-level means across independent allocation
-families represented in each county. Alternative upstream families must not be summed
-as though they were simultaneous physical supplies.
+Authorized users with the frozen seed can regenerate the reporting workbook using:
+
+```bash
+python scripts/13_build_figure_workbook.py --seed <validated_seed_workbook.xlsx>
+```
+
+The plotting stage then reads that workbook without changing scientific calculations:
+
+```bash
+python scripts/14_make_figures.py --workbook results/figures/BioLandUS_FigureWorkbook_v7_FINAL.xlsx
+```
+
+## Reproducibility principle
+
+Every retained input must be either:
+
+1. publicly retrievable and checksum-verifiable;
+2. an authorized restricted input documented by provenance but not redistributed; or
+3. a deterministic derivative of one of those inputs produced by versioned code.
+
+Development-only prototypes, literature reference files and superseded combined inputs are not treated as canonical model inputs.
