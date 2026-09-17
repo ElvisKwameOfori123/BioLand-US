@@ -1,0 +1,13 @@
+parameter,value,role
+smooth_log_dollar_intercept,-6.017543,Participation transport coefficient
+smooth_log_dollar_ln_offer,0.943158,Participation transport coefficient
+smooth_log_dollar_contract_10yr,-0.081661,Participation transport coefficient
+smooth_log_dollar_pasture,0.0214773,Participation transport coefficient
+smooth_log_dollar_switchgrass,0.746083,Participation transport coefficient
+conditional_acreage_exact_case_mean,0.860905,Conditional acreage diagnostic
+conditional_acreage_central_all_accept,0.863337,Central conditional acreage share
+conditional_acreage_ipw_all_accept,0.859531,Structural sensitivity
+conditional_acreage_lower_data_quality,0.624616,Structural sensitivity
+conditional_acreage_upper_data_quality,0.920684,Structural sensitivity
+bootstrap_draws,1000,Statistical uncertainty setting
+implemented_structural_variants,12,Structural uncertainty setting
