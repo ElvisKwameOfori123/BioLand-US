@@ -29,3 +29,6 @@ jobs:
 
       - name: Run unit tests
         run: python -m pytest
+
+      - name: Verify public manuscript release
+        run: python scripts/00_verify_release.py
