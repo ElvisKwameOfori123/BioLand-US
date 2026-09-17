@@ -18,8 +18,8 @@ structural sensitivity, behavioural-transport robustness and manuscript reportin
 | `10_transport_robustness.py` | Propagate absolute-dollar, offer/rent and offer+rent transport specifications; report Crop/Pasture heterogeneity |
 | `11_figure1_identity_audit.py` | Verify `b = p × s` and audit the Figure 1c aggregation |
 | `12_support_bounded_extrapolation.py` | Bound out-of-support behaviour using monotonicity only |
-| `13_build_figure_workbook.py` | Import audited outputs into the frozen v7 reporting workbook and run reporting checks |
-| `14_make_figures.py` | Read the frozen v7 workbook and draw the five main figures plus Extended Data Figure 1; does not write to the workbook |
+| `13_build_figure_workbook.py` | Import audited outputs into the frozen reporting workbook and run reporting checks |
+| `14_make_figures.py` | Read the final workbook and draw the five main figures plus Extended Data Figure 1; does not write to the workbook |
 
 Reusable scientific functions live in `src/bioland_us/`.
 
@@ -64,3 +64,10 @@ Figures 1-5 + Extended Data Figure 1
 ```
 
 The plotting script is read-only with respect to the workbook.
+
+The final workbook is a generated reporting artefact. It depends on the validated local seed workbook plus frozen upstream outputs, including products derived from restricted Study-A data. Those inputs are intentionally not treated as public raw data. For public release, the repository retains the builder, plotter, manuscript-facing CSV outputs, validation ledger and source provenance. Run the reporting stage with an authorized local seed using:
+
+```bash
+python scripts/13_build_figure_workbook.py --seed <validated_seed_workbook.xlsx>
+python scripts/14_make_figures.py --workbook results/figures/BioLandUS_FigureWorkbook_v7_FINAL.xlsx
+```
