@@ -1,29 +1,43 @@
-# BioLand-US data directory
+# BioLand-US data
 
-BioLand-US separates public-source provenance, restricted behavioural evidence and generated analytical products so that the public repository remains reproducible without redistributing data that should not be published.
+BioLand-US separates bundled public inputs, large third-party public sources, restricted behavioural records and generated analytical products. The goal is to make the public repository easy to audit without redistributing data that should remain with the original provider.
+
+## What is bundled
+
+Small, non-disclosive frozen inputs are versioned under `data/frozen/public/`:
+
+- `cpi_u_annual.csv`
+- `behaviour_parameters_public.csv`
+
+Manuscript-facing result tables are versioned under `results/manuscript/`, with reconciliation checks under `results/validation/`.
+
+## What is downloaded from the original provider
+
+Large public source files are kept under `data/raw/`, which is gitignored. Exact filenames, source pages, access status and SHA-256 checksums are recorded in `source_registry.csv`.
+
+For the sources with stable direct file URLs, run:
+
+```bash
+python scripts/00_fetch_public_sources.py
+```
+
+The helper retrieves the exact POLYSYS archive and 2022 Census Quick Stats bulk file used by BioLand-US and verifies their checksums. It also verifies the NASS rent exports and county geometry when those files are placed under `data/raw/`.
+
+## Restricted Study-A behavioural data
+
+The KBS Bioenergy and Land Use Survey respondent records are not redistributed. Researchers who need to re-estimate the behavioural models should obtain the source from KBS LTER/PASTA under the applicable data-use terms.
+
+The public national implementation instead carries the frozen non-disclosive behavioural parameters in `data/frozen/public/behaviour_parameters_public.csv` and `config/default.toml`.
 
 ## Directory policy
 
-- `data/raw/` is for local third-party downloads and is gitignored.
-- `data/restricted/` is for authorized Study-A respondent-level files and is gitignored.
-- `data/interim/` is for generated local intermediates and is gitignored.
-- `data/frozen/` contains documentation for frozen analytical products; restricted frozen files remain local.
-- `data/source_registry.csv` records canonical filenames, roles, repository treatment and SHA-256 checksums.
+- `data/raw/`: downloaded third-party public files, gitignored.
+- `data/restricted/`: authorized respondent-level files, gitignored.
+- `data/interim/`: generated local intermediates, gitignored.
+- `data/frozen/public/`: small public frozen inputs safe to version.
+- `data/frozen/restricted/`: respondent-derived restricted products that should remain local.
+- `data/source_registry.csv`: authoritative source/access/checksum ledger.
 
-## Public data
+Disclosure-suppressed Census values are never interpreted as zero. Unsupported cash-rent cells also remain missing rather than being converted to zero capacity. These are scientific rules, not file-management conveniences.
 
-Public inputs should be downloaded from their original providers, stored locally and checked against the SHA-256 values in `source_registry.csv` before use. The repository does not duplicate large third-party archives simply because they are public.
-
-## Restricted data
-
-The Study-A Bioenergy and Land Use Survey is used under its repository terms and required permissions. Respondent-level records must never be committed to GitHub. Only non-disclosive analytical exports and frozen coefficients needed for the public manuscript-facing implementation are retained.
-
-## Missing data and suppression
-
-Disclosure-suppressed Census values are not interpreted as zeros. Unsupported cash-rent cells also remain missing rather than being converted to zero capacity. These rules are part of the scientific model and are enforced in the clean workflow.
-
-## Reporting artefacts
-
-The final figure workbook is generated locally from a validated seed plus audited upstream outputs. Because parts of that upstream chain derive from restricted behavioural data, the workbook is treated as a reporting artefact rather than a public raw input. Public result tables and reconciliation checks are stored under `results/`.
-
-See `docs/data_inputs.md` and `docs/reproducibility.md` for the full execution and provenance architecture.
+For the complete access matrix and reviewer instructions, see [`docs/data_access.md`](../docs/data_access.md) and [`docs/reproducibility.md`](../docs/reproducibility.md).
