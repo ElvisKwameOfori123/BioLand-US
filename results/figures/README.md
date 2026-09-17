@@ -14,6 +14,8 @@ and the full behavioural-transport comparison are supplementary/Extended Data ou
 ## Final reporting workflow
 
 ```text
+validated local seed workbook + audited upstream outputs
+        ↓
 scripts/13_build_figure_workbook.py
         ↓
 results/figures/BioLandUS_FigureWorkbook_v7_FINAL.xlsx
@@ -26,7 +28,13 @@ results/figures/main/
 The builder imports audited upstream outputs and writes the reporting workbook.
 The plotter is read-only and performs no scientific model calculation.
 
-Key additions in v7 are:
+The final workbook is a generated local reporting artefact. The validated seed workbook and restricted-data-derived upstream products are not redistributed as public raw inputs. Public reproducibility is therefore supported through the versioned builder and plotting scripts, the source registry, manuscript-facing result tables and reconciliation checks. Authorized users with the frozen seed can regenerate the final workbook with:
+
+```bash
+python scripts/13_build_figure_workbook.py --seed <validated_seed_workbook.xlsx>
+```
+
+Key additions in the final reporting layer are:
 
 - audited Stage 03B conditional-acreage-by-offer margins;
 - Figure 1c `b = p × s` identity correction;
