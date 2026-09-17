@@ -396,6 +396,10 @@ The clean workflow enforces the following rules:
 - no interpretation of county maps as locally estimated willingness;
 - no redistribution of restricted respondent-level data.
 
+## Release note
+
+The clean migration is complete. Core tests, manuscript-facing validation checks, source provenance, data-boundary documentation and the reporting workflow are versioned on `main`. The repository is ready for public release once the review strategy permits de-anonymization.
+
 ## Manuscript and citation
 
 The associated manuscript is **in preparation**. A manuscript citation and DOI will be added after public release.
