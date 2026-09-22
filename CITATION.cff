@@ -5,6 +5,9 @@ type: software
 authors:
   - family-names: "Ofori"
     given-names: "Elvis Kwame"
+abstract: "Reproducible implementation-layer modelling of contractual land access and prospective U.S. perennial-biomass mobilization."
 repository-code: "https://github.com/ElvisKwameOfori123/BioLand-US"
+url: "https://github.com/ElvisKwameOfori123/BioLand-US"
+license: "CC0-1.0"
 version: 0.1.0
 date-released: 2026-09-17
