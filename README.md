@@ -9,25 +9,29 @@ BioLand-US is the public code and reproducibility companion for the manuscript *
 
 It asks one implementation question:
 
-> **When a techno-economic model allocates land to perennial biomass, how much of that prospective allocation can also be supported by compatible agricultural land and voluntary contractual participation?**
+> **When a techno-economic model allocates land to perennial biomass, how much of that prospective allocation can be supported by compatible agricultural land, experimentally informed landholder behaviour and the institutional transmission of that behaviour into contractually accessible acreage?**
 
-BioLand-US does **not** rerun or re-optimize POLYSYS. It adds a downstream implementation layer that separates technical allocation from land compatibility and contractual access.
+BioLand-US does **not** rerun or re-optimize POLYSYS. It adds a downstream implementation layer that distinguishes prospective resource allocation from contractual implementation capacity and traces the pathway from compatible land, through behavioural access and institutional transmission, to prospective biomass mobilization.
 
 ---
 
 ## Research logic
 
 ```text
-POLYSYS techno-economic biomass allocation
+prospective POLYSYS allocation
         ↓
 compatible agricultural land
         ↓
-contractually accessible land
+behavioural land access
+        ↓
+institutional transmission
+        ↓
+contractual capacity
         ↓
 prospectively mobilized biomass
 ```
 
-This distinction matters because technically allocated biomass is not automatically land that can be accessed under plausible voluntary contracts.
+This distinction matters because prospective biomass allocation does not itself establish the contractual land access required for implementation.
 
 County maps therefore represent **spatial implementation exposure under nationally transported experimental behaviour**. They are not maps of observed county willingness.
 
