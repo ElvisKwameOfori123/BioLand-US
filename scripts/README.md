@@ -19,6 +19,4 @@ Reusable logic lives in `src/bioland_us/`; scripts only read, call and write.
 | `09_build_spatial_outputs.py` | County robustness (S01) | 08, 07 | `results/spatial/` |
 | `10_transport_robustness.py` | Ratio / offer+rent transports, evidence bounds (B12) | 02–06, Stata 05 | `results/robustness/` |
 | `11_build_manuscript_tables.py` | Manuscript tables and reconciliation ledger | 06–10 | `results/manuscript/`, `results/validation/` |
-
-Figures are not yet rebuilt on this pipeline (the earlier workbook-based
-figure scripts depended on a hand-made seed workbook and were removed).
+| `12_make_figures.py` | Five main figures, read-only from result CSVs (`--skip-maps` without geometry) | `results/`, county geometry | `results/figures/` |

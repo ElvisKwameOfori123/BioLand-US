@@ -13,5 +13,6 @@ Everything here is produced by `scripts/00_run_core.py` (and Stata for
 | `spatial/` | County robustness table for maps |
 | `manuscript/` | Tables quoted in the paper |
 | `validation/` | Reconciliation ledger (every check must be PASS) |
+| `figures/` | Figures 1–5 as PDF and 300-dpi PNG |
 
 `restricted/` holds respondent-level Stata output and is git-ignored.

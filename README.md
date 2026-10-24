@@ -128,8 +128,9 @@ BioLand-US/
 the national inputs from raw sources and runs the capacity model, uncertainty
 and robustness. GitHub Actions runs the tests and `00_verify_release.py --recompute`.
 
-Manuscript tables are in `results/manuscript/`; the reconciliation ledger is in
-`results/validation/`. Figures are being rebuilt on this pipeline.
+Manuscript tables are in `results/manuscript/`, the reconciliation ledger in
+`results/validation/`, and Figures 1–5 (drawn straight from the result CSVs) in
+`results/figures/`.
 
 ---
 

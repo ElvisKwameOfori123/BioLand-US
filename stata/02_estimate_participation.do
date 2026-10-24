@@ -100,7 +100,37 @@ preserve
         replace p_smooth = M2[1, `j'] in `j'
     }
     gen double smooth_minus_categorical = p_smooth - p_categorical
+    gen double ll_categorical = .
+    gen double ul_categorical = .
+    forvalues j = 1/4 {
+        replace ll_categorical = M1[5, `j'] in `j'
+        replace ul_categorical = M1[6, `j'] in `j'
+    }
     export delimited using "$RESULTS_P/participation_margins.csv", replace
+restore
+
+* Smooth participation curve across the tested offer range (figure 1a).
+local grid ""
+forvalues k = 0/24 {
+    local grid "`grid' `=ln(50) + `k' * (ln(300) - ln(50)) / 24'"
+}
+estimates restore smooth
+margins, at(ln_offer = (`grid'))
+matrix MC = r(table)
+preserve
+    clear
+    set obs 25
+    gen double offer = .
+    gen double p_smooth = .
+    gen double ll = .
+    gen double ul = .
+    forvalues k = 1/25 {
+        replace offer = exp(ln(50) + (`k' - 1) * (ln(300) - ln(50)) / 24) in `k'
+        replace p_smooth = MC[1, `k'] in `k'
+        replace ll = MC[5, `k'] in `k'
+        replace ul = MC[6, `k'] in `k'
+    }
+    export delimited using "$RESULTS_P/participation_curve.csv", replace
 restore
 
 display as result "PASS 02: participation models estimated."

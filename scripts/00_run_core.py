@@ -20,7 +20,7 @@ PREPARE = ["02_prepare_polysys.py", "03_prepare_land.py", "04_prepare_rents.py"]
 MODEL = ["05_build_behavioural_access.py", "06_run_mobilization.py", "08_run_structural_sensitivity.py",
          "10_transport_robustness.py"]
 RESTRICTED = ["01_validate_behaviour.py", "07_run_bootstrap.py"]
-SPATIAL = ["09_build_spatial_outputs.py", "11_build_manuscript_tables.py"]
+SPATIAL = ["09_build_spatial_outputs.py", "11_build_manuscript_tables.py", "12_make_figures.py"]
 
 
 def main() -> None:

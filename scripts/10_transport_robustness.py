@@ -120,6 +120,7 @@ def main() -> None:
                                 ["UNSUPPORTED_RENT", "BELOW_SUPPORT", "WITHIN_SUPPORT"], "ABOVE_SUPPORT")
                 e = pd.DataFrame({"allocation_family": resource["allocation_family"], "land_type": resource["land_type"],
                                   "support": cls, "A_P": resource["A_P"]})
+                e = pd.concat([e, e.assign(land_type="All")], ignore_index=True)
                 share = e.groupby(["allocation_family", "land_type", "support"])["A_P"].sum()
                 share = (share / share.groupby(level=[0, 1]).transform("sum")).rename("acre_share").reset_index()
                 exposure.append(share.assign(scenario_id=scen.scenario_id, rent_multiplier=scen.rent_multiplier))
