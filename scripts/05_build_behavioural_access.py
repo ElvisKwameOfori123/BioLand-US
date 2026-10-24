@@ -1,12 +1,22 @@
-"""Build behavioural access and pooled T1 acreage-access rates.
+"""Behavioural access at county x land level under T1 pooled transmission.
 
-The script evaluates the frozen smooth participation model, combines it with
-the central conditional-acreage share, and then applies the explicit T1 pooled
-transmission at county × land level.
+For every compensation scenario and contract duration:
+    p_f      participation for the experimental archetype of feedstock f (07E1 transfer)
+    p_pool   acreage-weighted p over the feedstocks of one county x land pool (T1)
+    kappa    = s * p_pool, the acreage-access rate (s = conditional acreage share)
 
-The distinction remains explicit:
-    b = p × s  is landholder-level behavioural access;
-    kappa      is the acreage-weighted county × land access rate under T1.
+Tracks
+    A_EXPERIMENT_ANCHORED  the four randomized Study-A offers, nationally uniform
+    B_RENT_INDEXED         O_cl = m * R_cl, multipliers from bioland_us.compensation
+                           (cells without rent context stay unresolved, never p = 0)
+
+Behaviour weighting
+    PER_CHOICE     central Study-A estimates
+    ACRE_WEIGHTED  acreage-weighted p and s (person-to-acreage sensitivity, B07)
+
+Outputs
+    data/frozen/public/behavioural_access.csv       county x land pools
+    results/deterministic/compensation_scenarios.csv
 """
 
 from __future__ import annotations
@@ -18,202 +28,109 @@ import numpy as np
 import pandas as pd
 
 from bioland_us.behaviour import (
-    SmoothParticipationModel,
-    behavioural_access,
+    conditional_share,
+    load_public_parameters,
+    participation_model,
     predict_participation,
 )
+from bioland_us.compensation import reference_multipliers
 from bioland_us.config import load_config
-from bioland_us.feedstocks import apply_feedstock_transfer
+from bioland_us.mobilization import pool_participation
 from bioland_us.validation import require_columns
 
-
-RENT_SCENARIO_NAMES = {
-    1.0: "RENT_PARITY_BENCHMARK",
-    3.3544: "SUPPORT_ENTRY_REFERENCE",
-    6.7088: "SUPPORT_BALANCED_REFERENCE",
-    13.4175: "HIGHER_COMPENSATION_200_REFERENCE",
-    20.1263: "HIGHER_COMPENSATION_300_REFERENCE",
-}
+POOL_KEYS = ["behaviour_weighting", "track", "scenario_id", "rent_multiplier",
+             "contract_years", "allocation_family", "fips", "land_type"]
 
 
-def pool_t1(frame: pd.DataFrame) -> pd.DataFrame:
-    group = [
-        "track",
-        "scenario_id",
-        "rent_multiplier",
-        "contract_years",
-        "allocation_family",
-        "fips",
-        "land_type",
-    ]
-    x = frame.copy()
-    x["_numerator"] = x["A_P"] * x["b"]
-
-    pooled = (
-        x.groupby(group, dropna=False, as_index=False)
-        .agg(
-            A_P=("A_P", "sum"),
-            Q_P=("Q_P", "sum"),
-            numerator=("_numerator", "sum"),
-        )
+def support_class(offer: pd.Series) -> np.ndarray:
+    return np.select(
+        [offer.isna(), offer.lt(50), offer.le(300)],
+        ["UNSUPPORTED_RENT", "BELOW_SUPPORT", "WITHIN_SUPPORT"],
+        default="ABOVE_SUPPORT",
     )
-    missing = (
-        x.assign(_missing=x["b"].isna() & x["A_P"].gt(0))
-        .groupby(group, dropna=False, as_index=False)["_missing"]
-        .any()
+
+
+def scenario_rows(base: pd.DataFrame, cfg: dict, multipliers: pd.DataFrame):
+    """Yield (track, scenario_id, multiplier, duration, offer per row)."""
+    rent = pd.to_numeric(base["rent_2012usd_per_acre"], errors="coerce").where(
+        base["rent_supported"].fillna(False).astype(bool)
     )
-    pooled = pooled.merge(missing, on=group, validate="1:1")
-    pooled["kappa"] = np.where(
-        pooled["_missing"],
-        np.nan,
-        np.where(pooled["A_P"].gt(0), pooled["numerator"] / pooled["A_P"], 0.0),
-    )
-    pooled["transmission_id"] = "T1_POOLED_BEHAVIOURAL_TRANSMISSION"
-    return pooled.drop(columns=["numerator", "_missing"])
+    for duration in cfg["experiment"]["contract_years"]:
+        for offer in cfg["experiment"]["offers_usd_per_acre_year"]:
+            yield ("A_EXPERIMENT_ANCHORED", f"EXP_ABS_{int(offer)}", np.nan, duration,
+                   pd.Series(float(offer), index=base.index))
+        for row in multipliers.itertuples(index=False):
+            yield ("B_RENT_INDEXED", row.scenario_id, row.rent_multiplier, duration,
+                   row.rent_multiplier * rent)
 
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--resource",
-        type=Path,
-        default=Path("data/frozen/public/polysys_allocation.csv"),
-    )
-    parser.add_argument(
-        "--rents",
-        type=Path,
-        default=Path("data/frozen/public/rent_context.csv"),
-    )
-    parser.add_argument(
-        "--output",
-        type=Path,
-        default=Path("data/frozen/public/behavioural_access.csv"),
-    )
-    parser.add_argument(
-        "--output-resource",
-        type=Path,
-        default=Path("data/interim/behavioural_access_feedstock.csv"),
-    )
+    parser.add_argument("--resource", type=Path, default=Path("data/frozen/public/polysys_allocation.csv"))
+    parser.add_argument("--rents", type=Path, default=Path("data/frozen/public/rent_context.csv"))
+    parser.add_argument("--output", type=Path, default=Path("data/frozen/public/behavioural_access.csv"))
+    parser.add_argument("--output-scenarios", type=Path,
+                        default=Path("results/deterministic/compensation_scenarios.csv"))
     args = parser.parse_args()
 
     cfg = load_config()
-    bcfg = cfg["behaviour"]["smooth_log_dollar"]
-    model = SmoothParticipationModel(
-        intercept=bcfg["intercept"],
-        ln_offer=bcfg["ln_offer"],
-        contract_10yr=bcfg["contract_10yr"],
-        pasture=bcfg["pasture"],
-        switchgrass=bcfg["switchgrass"],
-    )
-    central_s = float(cfg["intensive"]["central_all_accept"])
+    params = load_public_parameters()
 
     resource = pd.read_csv(args.resource, dtype={"fips": "string"})
     rents = pd.read_csv(args.rents, dtype={"fips": "string"})
+    require_columns(resource, ["allocation_family", "fips", "land_type", "experimental_feedstock", "A_P", "Q_P"],
+                    name="POLYSYS allocation")
+    require_columns(rents, ["fips", "land_type", "rent_supported", "rent_2012usd_per_acre"], name="rent context")
 
-    require_columns(
-        resource,
-        ["allocation_family", "fips", "land_type", "feedstock", "A_P", "Q_P"],
-        name="POLYSYS allocation",
-    )
-    if "experimental_feedstock" not in resource.columns:
-        resource = apply_feedstock_transfer(resource)
+    multipliers = reference_multipliers(resource, rents, cfg["experiment"]["offers_usd_per_acre_year"])
+    configured = np.array(cfg["compensation"]["rent_multipliers"], dtype=float)
+    if not np.allclose(np.sort(multipliers["rent_multiplier"]), np.sort(configured), atol=5e-5):
+        raise ValueError(
+            "Data-derived rent multipliers differ from config: "
+            f"{multipliers['rent_multiplier'].round(4).tolist()} vs {configured.tolist()}"
+        )
 
-    require_columns(
-        rents,
-        ["fips", "land_type", "rent_supported", "rent_2012usd_per_acre"],
-        name="rent context",
-    )
+    base = resource.merge(rents[["fips", "land_type", "rent_supported", "rent_2012usd_per_acre"]],
+                          on=["fips", "land_type"], how="left", validate="m:1")
 
-    base = resource.merge(
-        rents[["fips", "land_type", "rent_supported", "rent_2012usd_per_acre"]],
-        on=["fips", "land_type"],
-        how="left",
-        validate="m:1",
-    )
-
-    rows = []
-    durations = cfg["experiment"]["contract_years"]
-
-    for offer in cfg["experiment"]["offers_usd_per_acre_year"]:
-        for duration in durations:
-            x = base.copy()
-            x["track"] = "A_EXPERIMENT_ANCHORED"
-            x["scenario_id"] = f"EXP_ABS_{int(offer)}"
-            x["rent_multiplier"] = np.nan
-            x["offer_2012usd_acre_year"] = float(offer)
-            x["contract_years"] = int(duration)
-            x["p"] = predict_participation(
-                x["offer_2012usd_acre_year"],
-                x["contract_years"],
-                x["land_type"],
-                x["experimental_feedstock"],
-                model,
-            )
-            x["s"] = central_s
-            x["b"] = behavioural_access(x["p"], x["s"])
-            x["experimental_support_class"] = "EXACT_RANDOMIZED_KNOT"
-            rows.append(x)
-
-    for multiplier in cfg["compensation"]["rent_multipliers"]:
-        for duration in durations:
-            x = base.copy()
-            multiplier = float(multiplier)
-            x["track"] = "B_RENT_INDEXED"
-            x["scenario_id"] = RENT_SCENARIO_NAMES.get(
-                multiplier,
-                f"RENT_M_{multiplier:g}",
-            )
+    pools = []
+    for weighting in ("PER_CHOICE", "ACRE_WEIGHTED"):
+        model = participation_model(params, weighting)
+        s = conditional_share(params, "CENTRAL_PRIMARY", weighting)
+        for track, scenario, multiplier, duration, offer in scenario_rows(base, cfg, multipliers):
+            x = base[["allocation_family", "fips", "land_type", "experimental_feedstock", "A_P", "Q_P"]].copy()
+            x["p"] = predict_participation(offer.to_numpy(float), np.full(len(x), duration),
+                                           x["land_type"], x["experimental_feedstock"], model)
+            x["support"] = support_class(offer)
+            x["behaviour_weighting"] = weighting
+            x["track"] = track
+            x["scenario_id"] = scenario
             x["rent_multiplier"] = multiplier
-            supported = x["rent_supported"].fillna(False)
-            x["offer_2012usd_acre_year"] = np.where(
-                supported,
-                multiplier * pd.to_numeric(x["rent_2012usd_per_acre"], errors="coerce"),
-                np.nan,
-            )
             x["contract_years"] = int(duration)
-            x["p"] = predict_participation(
-                x["offer_2012usd_acre_year"],
-                x["contract_years"],
-                x["land_type"],
-                x["experimental_feedstock"],
-                model,
+
+            pooled = pool_participation(x, POOL_KEYS)
+            within = (
+                x.assign(_w=x["A_P"].where(x["support"].eq("WITHIN_SUPPORT"), 0.0))
+                .groupby(POOL_KEYS, dropna=False, as_index=False)["_w"].sum()
             )
-            x["s"] = central_s
-            x["b"] = behavioural_access(x["p"], x["s"])
-            x["experimental_support_class"] = np.select(
-                [
-                    ~supported,
-                    x["offer_2012usd_acre_year"].lt(50),
-                    x["offer_2012usd_acre_year"].between(50, 300, inclusive="both"),
-                    x["offer_2012usd_acre_year"].gt(300),
-                ],
-                [
-                    "UNSUPPORTED_RENT",
-                    "BELOW_SUPPORT",
-                    "WITHIN_SUPPORT",
-                    "ABOVE_SUPPORT",
-                ],
-                default="UNSUPPORTED_RENT",
-            )
-            rows.append(x)
+            pooled = pooled.merge(within, on=POOL_KEYS, validate="1:1")
+            pooled["within_support_acres"] = pooled.pop("_w")
+            pooled["conditional_share"] = s
+            pooled["kappa"] = s * pooled["p_pool"]
+            pools.append(pooled)
 
-    feedstock = pd.concat(rows, ignore_index=True)
-    if feedstock.loc[
-        feedstock["experimental_support_class"].eq("UNSUPPORTED_RENT"),
-        "b",
-    ].notna().any():
-        raise AssertionError("Unsupported rent cells received behavioural access.")
+    out = pd.concat(pools, ignore_index=True)
+    if not out["kappa"].dropna().between(0, 1).all():
+        raise AssertionError("kappa outside [0, 1].")
+    out["transmission_id"] = "T1_POOLED_BEHAVIOURAL_TRANSMISSION"
 
-    pooled = pool_t1(feedstock)
-
-    args.output_resource.parent.mkdir(parents=True, exist_ok=True)
-    feedstock.to_csv(args.output_resource, index=False)
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    pooled.to_csv(args.output, index=False)
+    out.to_csv(args.output, index=False)
+    args.output_scenarios.parent.mkdir(parents=True, exist_ok=True)
+    multipliers.to_csv(args.output_scenarios, index=False)
 
-    print("PASS: behavioural access and T1 pooled access written.")
-    print(f"  feedstock-level b={args.output_resource}")
-    print(f"  county-land kappa={args.output}")
+    print(f"PASS: {len(out):,} county x land pools written.")
+    print(multipliers.round(4).to_string(index=False))
 
 
 if __name__ == "__main__":

@@ -1,0 +1,5 @@
+transmission_id,status,quantitative,reason
+T1_POOLED_BEHAVIOURAL_TRANSMISSION,IMPLEMENTED_CORE,True,Explicit reference transmission used in the core model.
+T2_ROLE_DIFFERENTIATED_TRANSMISSION,DEFERRED_REQUIRES_NATIONAL_ROLE_WEIGHTS,False,No defensible national bridge between prior agricultural lessor experience and parcel-level role weights.
+T3_PROPORTIONAL_OVERLAP_REPRESENTATION,DEFERRED_REQUIRES_FORMULA_FREEZE,False,No empirically identified national overlap parameter is frozen.
+T4_OPTIMISTIC_OWNER_AVAILABILITY_BENCHMARK,DEFERRED_REQUIRES_FORMULA_FREEZE,False,Operator-owned acreage cannot be read as universal landlord availability without more evidence.

@@ -56,3 +56,12 @@ dist/
 
 # Respondent-level Stata outputs
 results/restricted/**
+
+# Large regenerated model outputs (rebuilt by scripts/00_run_core.py)
+data/frozen/public/behavioural_access.csv
+results/deterministic/county_land_mobilization.csv
+results/structural/county_land_structural_variants.csv
+results/bootstrap/national_bootstrap_draws.csv
+
+# Literature and optional reference files (not pipeline inputs)
+data/reference/**

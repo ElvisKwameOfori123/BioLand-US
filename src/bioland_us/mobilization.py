@@ -24,6 +24,25 @@ def aggregate_polysys_pools(resource: pd.DataFrame) -> pd.DataFrame:
     return pools
 
 
+def pool_participation(frame: pd.DataFrame, keys: list[str], p_col: str = "p") -> pd.DataFrame:
+    """T1 pooling: acreage-weighted participation over feedstocks in one county x land pool.
+
+    p_pool = sum_f A_P,f * p_f / sum_f A_P,f. A pool is unresolved (NaN) when any
+    feedstock with positive acreage lacks p; a pool with no acreage gets 0.
+    """
+    x = frame[[*keys, "A_P", "Q_P", p_col]].copy()
+    x["_num"] = x["A_P"] * x[p_col]
+    x["_missing"] = x[p_col].isna() & x["A_P"].gt(0)
+    out = (
+        x.groupby(keys, dropna=False, as_index=False)
+        .agg(A_P=("A_P", "sum"), Q_P=("Q_P", "sum"), _num=("_num", "sum"), _missing=("_missing", "any"))
+    )
+    out["p_pool"] = np.where(
+        out["_missing"], np.nan, np.where(out["A_P"].gt(0), out["_num"] / out["A_P"], 0.0)
+    )
+    return out.drop(columns=["_num", "_missing"])
+
+
 def compute_pool_capacity(
     pools: pd.DataFrame,
     land: pd.DataFrame,
@@ -147,6 +166,9 @@ def national_summary(constrained: pd.DataFrame) -> pd.DataFrame:
             "rent_multiplier",
             "allocation_family",
             "contract_years",
+            "behaviour_weighting",
+            "behaviour_representation",
+            "landbase_structure",
         ]
         if column in constrained.columns
     ]
@@ -188,3 +210,59 @@ def national_summary(constrained: pd.DataFrame) -> pd.DataFrame:
         .apply(summarise, include_groups=False)
         .reset_index()
     )
+
+
+class VectorisedT1Model:
+    """Vectorised T1 capacity model for one fixed land surface.
+
+    Same arithmetic as pool_participation + apply_capacity_constraint, written with
+    bincount so that thousands of bootstrap or sensitivity runs stay fast. Script 07
+    checks that both paths give identical national results.
+    """
+
+    def __init__(self, resource: pd.DataFrame, land: pd.DataFrame):
+        r = resource.reset_index(drop=True)
+        keys = r["allocation_family"] + "|" + r["fips"] + "|" + r["land_type"]
+        self.pool_id, uniques = pd.factorize(keys)
+        pools = pd.Series(uniques).str.split("|", expand=True)
+        pools.columns = ["allocation_family", "fips", "land_type"]
+        self.pools = pools.merge(land, on=["fips", "land_type"], how="left", validate="m:1")
+        n = len(self.pools)
+        self.A_f = r["A_P"].to_numpy(float)
+        self.A = np.bincount(self.pool_id, self.A_f, minlength=n)
+        self.Q = np.bincount(self.pool_id, r["Q_P"].to_numpy(float), minlength=n)
+        self.B = self.pools["B"].to_numpy(float)
+        self.family_id, self.families = pd.factorize(self.pools["allocation_family"])
+        self.land_type = r["land_type"]
+        self.feedstock = r["experimental_feedstock"]
+
+    def run(self, p: np.ndarray, s: float) -> dict[str, np.ndarray]:
+        n = len(self.A)
+        positive = self.A_f > 0
+        missing = np.bincount(self.pool_id, (np.isnan(p) & positive).astype(float), minlength=n) > 0
+        num = np.bincount(self.pool_id, np.where(positive, self.A_f * np.nan_to_num(p), 0.0), minlength=n)
+        with np.errstate(invalid="ignore", divide="ignore"):
+            p_pool = np.where(self.A > 0, num / self.A, 0.0)
+            p_pool[missing] = np.nan
+            K = self.B * s * p_pool
+            lam = np.where(self.A > 0, np.minimum(1.0, K / self.A), 1.0)
+            rho = np.where(self.A > 0, self.A / K, np.nan)
+        lam[~np.isfinite(K)] = np.nan
+        rho[~np.isfinite(K)] = np.nan
+        known = np.isfinite(lam)
+        q_lo = np.where(known, lam * self.Q, 0.0)
+        q_hi = np.where(known, lam * self.Q, self.Q)
+        a_lo = np.where(known, lam * self.A, 0.0)
+        a_hi = np.where(known, lam * self.A, self.A)
+        nf = len(self.families)
+        tot = lambda v: np.bincount(self.family_id, v, minlength=nf)  # noqa: E731
+        return {
+            "M_Q_full_lower": tot(q_lo) / tot(self.Q), "M_Q_full_upper": tot(q_hi) / tot(self.Q),
+            "M_A_full_lower": tot(a_lo) / tot(self.A), "M_A_full_upper": tot(a_hi) / tot(self.A),
+            "lambda": lam, "rho": rho,
+        }
+
+    def participation(self, offer: np.ndarray, years: int, model) -> np.ndarray:
+        from .behaviour import predict_participation
+
+        return predict_participation(offer, np.full(len(offer), years), self.land_type, self.feedstock, model)

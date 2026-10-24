@@ -1,5 +1,7 @@
-# BioLand-US clean public configuration.
-# Scientific constants here must match the frozen validated analysis.
+# BioLand-US configuration: settings only.
+# Behavioural coefficients and conditional-acreage shares are NOT typed here;
+# they are read from data/frozen/public/behaviour_parameters_public.csv, which
+# the Stata pipeline (stata/00_run_behaviour.do) writes.
 
 [project]
 name = "BioLand-US"
@@ -24,23 +26,13 @@ independent_allocation_families = 3
 offers_usd_per_acre_year = [50.0, 100.0, 200.0, 300.0]
 contract_years = [5, 10]
 
-[behaviour.smooth_log_dollar]
-intercept = -6.017543
-ln_offer = 0.943158
-contract_10yr = -0.081661
-pasture = 0.0214773
-switchgrass = 0.746083
-
-[intensive]
-exact_case_mean = 0.860905
-central_all_accept = 0.863337
-ipw_all_accept = 0.859531
-lower_data_quality = 0.624616
-upper_data_quality = 0.920684
-
 [compensation]
 rent_multipliers = [1.0, 3.3544, 6.7088, 13.4175, 20.1263]
 support_balanced_multiplier = 6.7088
+
+[land]
+central_structure = "FARMLAND"
+structures = ["FARMLAND", "EQUAL"]
 
 [transmission]
 implemented = "T1_POOLED"
@@ -48,4 +40,6 @@ implemented = "T1_POOLED"
 
 [uncertainty]
 bootstrap_draws = 1000
-implemented_structural_variants = 12
+bootstrap_seed = 20260912
+# 4 intensive representations x 2 land structures + acreage-weighted behaviour x 2.
+implemented_structural_variants = 10

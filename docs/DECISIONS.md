@@ -1,0 +1,39 @@
+# Scientific decisions
+
+Every rule the code applies that a reasonable analyst could have made differently.
+IDs are cited in the code where the rule is implemented. Change a rule here first,
+then in the code, and record the date.
+
+| ID | Rule | Where | Why | Changes the result? |
+|---|---|---|---|---|
+| **Behaviour (Study A)** |||||
+| B01 | Use only the perennial choices: switchgrass and poplar on cropland and pasture. Corn, prairie and "other land" questions are not used. | `stata/01_import_kbs.do` | POLYSYS allocates perennial energy crops on Crop and Pasture land. | Defines the sample. |
+| B02 | Eligible respondent: Q1 = 1 (owns > 10 rural acres) and Q2 = 1 (main decision maker). | `stata/01` | The contract is offered to landholders who decide. | 403 respondents. |
+| B03 | Decision code 1 = accept; 0, 3, 4 = reject; 2 ("does not own that land type") leaves the choice set. | `stata/01` | Code 2 is not a decision about the offer. | 1,270 choices, 356 accepts. |
+| B04 | A literal `x` in an acreage item means "marked, amount unknown": acreage missing, never zero; denominator flagged. | `stata/01` | Four raw cells carry `x`. | Moves those choices out of the exact class. |
+| B05 | Crop denominator = A8a–A8f (corn, soybeans, wheat, other row crops, fruit, vegetables); Pasture = A8g–A8h (grassland/pasture, hay). | `stata/01` | Matches Census Crop / Pasture land. | Sets conditional shares. |
+| B06 | National transport uses the smooth ln(offer) logit; the categorical offer model is the experimental check. | `stata/02` | National offers are continuous. | Smooth vs categorical margins differ by ≤ 0.04. |
+| B07 | Person-to-acreage sensitivity: participation and conditional share re-estimated with owned-acre weights. | `stata/02`, `stata/03` | The survey is per person; national capacity is in acres. Median respondent owns 35 eligible acres. | Structural variant; drops 361 rejecting choices without acreage, so it is a sensitivity, not a replacement. |
+| B08 | Accepted-choice intensive classes: exact / range / missing / residual (definitions in `stata/03`). | `stata/03` | Many stated acreages are inconsistent with the denominators. | 203 exact of 356. |
+| B09 | Central share: exact shares kept; every other accepted choice takes the exact-case mean projected into its own feasible interval. | `stata/03`, `scripts/07` | Uses observed information without inventing precision. | s = 0.8633. |
+| B10 | IPW robustness: stabilized inverse probability of exactness. | `stata/03` | Exact cases may be selected. | s = 0.8595. |
+| B11 | Study-A rent matched on survey county × land type, only for respondents naming one survey county. | `stata/05` | Multi-county respondents have no unique local rent. | 1,157 choices, 370 respondents. |
+| B12 | Outside the tested offer range [$50, $300] the smooth model is bounded: p ∈ [0, p(50)] below, [p(300), 1] above. | `scripts/10` | No experimental evidence outside the range. | Evidence bounds on rent-indexed results. |
+| **POLYSYS** |||||
+| P01 | Keep POLYSYS, 2041, $70/dry ton, Crop + Pasture, seven perennial crops. | `scripts/02` | Central Billion-Ton case. | 36,921 source rows. |
+| P02 | `emerging` and `mature-market high` are verified identical; three independent allocation families remain. | `scripts/02` | Avoids double-counting one allocation. | Family-balanced means use 3 families. |
+| T01 | Treatment-class transfer: Switchgrass, Miscanthus, Energy cane → switchgrass; Poplar, Willow, Eucalyptus, Pine → poplar. | `src/bioland_us/feedstocks.py` | Only two species were tested. Directly tested species are 47% of biomass. | Reported as coverage, not as zero for untested crops. |
+| T02 | T1 pooled transmission: κ = s × acreage-weighted p within each county × land pool; feedstocks share one land pool. | `src/bioland_us/mobilization.py` | No capacity is used twice. T2–T4 are deferred. | Core assumption. |
+| **Land (Census 2022)** |||||
+| L01 | Census items: cropland, cropland pastured only, permanent pasture (excl. cropland and woodland); owned and rented land in farms for weights. | `scripts/03` | Published county land accounts. | — |
+| L02 | B_Crop = cropland − cropland pastured only; B_Pasture = cropland pastured only + permanent pasture. | `scripts/03` | Pastured cropland is used as pasture. | — |
+| L03 | Suppressed "(D)" cells share the exact state residual. Central weights = county land in farms (FARMLAND); sensitivity = equal shares (EQUAL). Nesting enforced; disclosed values never change; state totals close exactly. A county row absent from Quick Stats is zero. | `scripts/03`, `src/bioland_us/landbase.py` | Larger farm counties should receive more of the withheld acres. 10.5% of POLYSYS biomass sits in counties with a suppressed item. | Up to 2 M acres difference between surfaces in a county. |
+| L04 | Where the state total is suppressed (pastured cropland in Arizona and Rhode Island) the suppressed counties stay unresolved; Alaska is excluded (no POLYSYS allocation). | `scripts/03` | No exact residual exists. | 5 counties, 0.015% of biomass, carried as bounds. |
+| **Rent and compensation** |||||
+| R01 | Crop rent = non-irrigated cropland cash rent; Pasture = pasture cash rent. | `scripts/04` | Perennial energy crops are rain-fed. | — |
+| R02 | Rent hierarchy: same county & land in the reference year → nearest year within ±3 (earlier on ties) → state rent in the reference year → unsupported (missing, never zero). Values in 2012 dollars (CPI-U). | `src/bioland_us/rents.py` | Shared by the national 2022 and Study-A 2012 contexts. | 73 national cells unsupported. |
+| C01 | Rent-indexed multipliers = family-balanced, harvested-acre weighted median of X / rent for X ∈ {50, 100, 200, 300}; rent parity m = 1 as benchmark. | `src/bioland_us/compensation.py` | Each multiplier is the one at which half the POLYSYS acreage receives at least the Study-A offer. | m = 3.354, 6.709, 13.42, 20.13; checked against config every run. |
+| **Reporting** |||||
+| S01 | County pressure from pool results: a county binds if any land pool binds; ρ = its most constrained pool. Capacity is never summed across Crop and Pasture. | `src/bioland_us/spatial.py` | Spare pasture cannot serve a crop allocation. The earlier summed rule missed about 40% of binding counties. | County maps and P(bind). |
+| S02 | Structural range = min/max of the full-denominator lower bound across variants; the coverage gap (upper − lower) from unresolved cells is reported separately. | `scripts/08` | The two are different kinds of uncertainty. | — |
+| S03 | Statistical (bootstrap), structural (variants) and evidence-support uncertainty are never combined into one interval. | `scripts/07`, `08`, `10` | They answer different questions. | — |

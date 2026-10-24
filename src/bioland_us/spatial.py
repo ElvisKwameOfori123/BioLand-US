@@ -1,54 +1,60 @@
-"""Spatial robustness summaries for county implementation exposure."""
+"""County implementation pressure built from the county x land capacity results.
+
+Capacity is constrained separately in each land pool (Crop, Pasture); spare
+pasture capacity cannot serve a crop allocation. County summaries therefore
+derive from the pool results instead of summing capacity across pools:
+
+    binding  = 1 if any land pool with upstream acreage binds
+    rho      = the largest pool pressure A_P / K (the most constrained pool)
+    M_Q      = county mobilized biomass / county upstream biomass
+"""
 
 from __future__ import annotations
 
 import numpy as np
 import pandas as pd
 
+COUNTY_KEYS = ["allocation_family", "scenario_id", "contract_years", "fips"]
 
-def county_central_summary(constrained: pd.DataFrame) -> pd.DataFrame:
-    """Aggregate county outcomes over land pools while preserving unsupported bounds."""
-    keys = ["allocation_family", "scenario_id", "contract_years", "fips"]
 
-    def summarise(g: pd.DataFrame) -> pd.Series:
-        a_p = float(g["A_P"].sum())
-        q_p = float(g["Q_P"].sum())
-        k = g["K"].sum(min_count=1)
+def county_central_summary(constrained: pd.DataFrame, keys: list[str] | None = None) -> pd.DataFrame:
+    """Aggregate pool results to counties while preserving unresolved bounds."""
+    keys = keys or [k for k in COUNTY_KEYS if k in constrained.columns]
+    x = constrained.copy()
+    active = x["A_P"] > 0
+    x["_unresolved"] = active & x["lambda"].isna()
+    x["_bind"] = active & (x["binding"] == 1)
+    x["_rho"] = np.where(active, x["rho"], np.nan)
 
-        a_lo = float(g["A_M_full_lower"].sum())
-        a_hi = float(g["A_M_full_upper"].sum())
-        q_lo = float(g["Q_M_full_lower"].sum())
-        q_hi = float(g["Q_M_full_upper"].sum())
+    g = x.groupby(keys, dropna=False)
+    out = g.agg(
+        A_P=("A_P", "sum"),
+        Q_P=("Q_P", "sum"),
+        K=("K", lambda k: k.sum(min_count=1)),
+        A_M_full_lower=("A_M_full_lower", "sum"),
+        A_M_full_upper=("A_M_full_upper", "sum"),
+        Q_M_full_lower=("Q_M_full_lower", "sum"),
+        Q_M_full_upper=("Q_M_full_upper", "sum"),
+        unresolved_land_cells=("_unresolved", "sum"),
+        binding_land_cells=("_bind", "sum"),
+        rho=("_rho", "max"),
+    ).reset_index()
 
-        if a_p > 0 and np.isfinite(k):
-            rho = np.inf if k == 0 else a_p / float(k)
-        else:
-            rho = np.nan
-
-        return pd.Series(
-            {
-                "A_P": a_p,
-                "Q_P": q_p,
-                "K": k,
-                "rho": rho,
-                "M_A_full_lower": a_lo / a_p if a_p else np.nan,
-                "M_A_full_upper": a_hi / a_p if a_p else np.nan,
-                "M_Q_full_lower": q_lo / q_p if q_p else np.nan,
-                "M_Q_full_upper": q_hi / q_p if q_p else np.nan,
-                "unmet_A_full_lower": a_p - a_hi,
-                "unmet_A_full_upper": a_p - a_lo,
-                "unmet_Q_full_lower": q_p - q_hi,
-                "unmet_Q_full_upper": q_p - q_lo,
-                "binding": int(np.isinf(rho) or (np.isfinite(rho) and rho > 1)),
-                "unsupported_land_cells": int(g["lambda"].isna().sum()),
-            }
-        )
-
-    return (
-        constrained.groupby(keys, dropna=False)
-        .apply(summarise, include_groups=False)
-        .reset_index()
-    )
+    resolved = out["unresolved_land_cells"].eq(0)
+    out.loc[~resolved, "rho"] = np.nan
+    out["binding"] = np.where(resolved | out["binding_land_cells"].gt(0),
+                              out["binding_land_cells"].gt(0).astype(float), np.nan)
+    with np.errstate(invalid="ignore", divide="ignore"):
+        for m in ("A", "Q"):
+            for b in ("lower", "upper"):
+                out[f"M_{m}_full_{b}"] = np.where(
+                    out[f"{m}_P"] > 0, out[f"{m}_M_full_{b}"] / out[f"{m}_P"], np.nan
+                )
+    out["unmet_Q_full_lower"] = out["Q_P"] - out["Q_M_full_upper"]
+    out["unmet_Q_full_upper"] = out["Q_P"] - out["Q_M_full_lower"]
+    out["unmet_A_full_lower"] = out["A_P"] - out["A_M_full_upper"]
+    out["unmet_A_full_upper"] = out["A_P"] - out["A_M_full_lower"]
+    return out
 
 
 def structural_disagreement(
@@ -57,7 +63,7 @@ def structural_disagreement(
     value: str = "M_Q_full_lower",
 ) -> pd.DataFrame:
     """D_c = max_S(M_Q,c) - min_S(M_Q,c), reported separately from bootstrap."""
-    keys = ["allocation_family", "scenario_id", "contract_years", "fips"]
+    keys = [k for k in COUNTY_KEYS if k in variants.columns]
     out = variants.groupby(keys)[value].agg(["min", "max"]).reset_index()
     out["D_structural"] = out["max"] - out["min"]
     return out

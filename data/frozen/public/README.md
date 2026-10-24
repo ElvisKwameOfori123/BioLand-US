@@ -1,18 +1,20 @@
-# Bundled public frozen inputs
+# Public frozen tables
 
-This directory contains small, non-disclosive inputs that can be safely versioned with BioLand-US.
+Small, non-disclosive tables that are versioned so a fresh clone can rerun the
+national model without the large raw sources. Each is produced by a script;
+the only hand-entered inputs are the two marked "bundled".
 
-Included here:
+| File | Made by | Content |
+|---|---|---|
+| `behaviour_parameters_public.csv` | `stata/04_export_behaviour.do` | Participation coefficients and conditional-acreage shares (aggregates only) |
+| `polysys_allocation.csv` | `scripts/02_prepare_polysys.py` | POLYSYS 2041 / $70 perennial allocation, three families |
+| `compatible_land.csv` | `scripts/03_prepare_land.py` | Census 2022 Crop / Pasture land, FARMLAND completion (central) |
+| `land_structures/*.csv` | `scripts/03_prepare_land.py` | Every Census completion surface |
+| `census_completion_ledger.csv` | `scripts/03_prepare_land.py` | Disclosed / completed / unresolved status per county and item |
+| `rent_context.csv` | `scripts/04_prepare_rents.py` | 2022 rent context for POLYSYS cells (2012 $) |
+| `studyA_rent_context.csv` | `scripts/04_prepare_rents.py` | 2012 rent context for the Study-A survey counties |
+| `cpi_u_annual.csv` | bundled | BLS CPI-U annual averages |
+| `michigan_state_rent_2012.csv` | bundled | NASS 2012 Michigan state pasture rent (Study-A fallback) |
 
-- `cpi_u_annual.csv`: CPI-U annual-average anchors used to convert supported land rents to 2012 dollars.
-- `behaviour_parameters_public.csv`: frozen non-disclosive behavioural coefficients, conditional-acreage representations and uncertainty settings used by the manuscript-facing implementation.
-
-Large third-party public datasets are not duplicated in GitHub. They are retrieved from their authoritative providers and verified against `data/source_registry.csv`. Use:
-
-```bash
-python scripts/00_fetch_public_sources.py
-```
-
-The KBS Study-A respondent-level survey is not redistributed. It must be obtained from KBS LTER/PASTA under the applicable data-use terms if behavioural re-estimation is required.
-
-The public national model uses the frozen behavioural coefficients. Re-estimating those coefficients from respondent-level records is a separate restricted-data validation stage.
+`behavioural_access.csv` is also written here by script 05 but is large and
+git-ignored; `scripts/00_run_core.py` rebuilds it.

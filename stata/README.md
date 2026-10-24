@@ -1,48 +1,22 @@
-# Stata behavioural analysis
+# Stata behavioural pipeline (Stata 18.5)
 
-Stata 18.5 is authoritative for Study-A behavioural estimation.
-
-Run the core behavioural workflow from the repository root:
+Starts from the raw KBS archive `data/raw/knb-lter-kbs.124.2.zip`. Run from the
+repository root:
 
 ```stata
 do stata/00_run_behaviour.do
 ```
 
-| Script | Purpose |
+| File | Does |
 |---|---|
-| `00_run_behaviour.do` | Master behavioural runner |
-| `01_prepare_behaviour.do` | Prepare the restricted Study-A analysis sample |
-| `02_estimate_participation.do` | Estimate randomized-offer and smooth participation models |
-| `03_reconstruct_conditional_acreage.do` | Reproduce the frozen intensive-margin architecture |
-| `04_export_behaviour.do` | Export canonical restricted/public behavioural inputs |
-| `05_validate_behaviour.do` | Regression-test the frozen manuscript results |
-| `06_export_transport_sensitivity.do` | Estimate and export rent-matched offer/rent and offer+rent transport sensitivities |
+| `01_import_kbs.do` | Unzip and import the survey, safe numeric parsing, eligibility, long choice file (B01–B05) |
+| `02_estimate_participation.do` | Categorical and smooth participation logits, acreage-weighted model, leave-one-county-out (B06, B07) |
+| `03_conditional_acreage.do` | Intensive classes, bounds, central and IPW shares, acreage-weighted shares (B07–B10) |
+| `04_export_behaviour.do` | Restricted choice-level export for the bootstrap; public parameter table |
+| `05_transport_sensitivity.do` | Ratio-only and offer+rent models on rent-matched choices (B11) |
 
-Restricted respondent-level data are not redistributed.
+Respondent-level outputs go to `data/restricted/`, `data/frozen/restricted/` and
+`results/restricted/` (all git-ignored). Aggregate results go to `results/behaviour/`.
 
-## Primary participation transport
-
-Expected frozen smooth coefficients:
-
-| term | value |
-|---|---:|
-| intercept | -6.017543 |
-| ln(offer) | 0.943158 |
-| 10-year contract | -0.081661 |
-| Pasture | 0.0214773 |
-| Switchgrass | 0.746083 |
-
-The primary randomized treatment is an **annual land-rental offer per acre per year**.
-
-## Rent-context robustness
-
-`06_export_transport_sensitivity.do` operates on the locally held rent-matched
-restricted Study-A file and exports two sensitivity models:
-
-1. `ln(offer/rent)` ratio-only stress test;
-2. unrestricted `ln(offer) + ln(rent)` sensitivity.
-
-In the audited rent-matched sample (1,157 choices, 370 respondent clusters), the
-restriction required by the pure ratio model, `beta_ln_offer + beta_ln_rent = 0`,
-is rejected (`p = 0.0002`). The ratio-only model is therefore retained as a stress
-test rather than treated as an equally weighted primary transport specification.
+Current values: 1,270 choices, 403 respondents, 356 accepts, 203 exact;
+ln(offer) = 0.943; s = 0.8633 (IPW 0.8595, acreage-weighted 0.8858).

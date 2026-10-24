@@ -1,0 +1,4 @@
+allocation_family,tested_species_harvest_share,tested_species_production_share,interpretation
+FAMILY_01,0.6271126920163811,0.47298551944002737,"Share of the POLYSYS allocation directly represented by species tested in Study A; untested species are transferred, not set to zero."
+FAMILY_02,0.8040419089767468,0.664983796397784,"Share of the POLYSYS allocation directly represented by species tested in Study A; untested species are transferred, not set to zero."
+FAMILY_03,0.7483917662014449,0.5974243569428365,"Share of the POLYSYS allocation directly represented by species tested in Study A; untested species are transferred, not set to zero."

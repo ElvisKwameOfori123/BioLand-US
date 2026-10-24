@@ -47,6 +47,7 @@ do "$ROOT/stata/01_import_kbs.do"
 do "$ROOT/stata/02_estimate_participation.do"
 do "$ROOT/stata/03_conditional_acreage.do"
 do "$ROOT/stata/04_export_behaviour.do"
+do "$ROOT/stata/05_transport_sensitivity.do"
 
 display as text "================================================================================"
 display as result "BIOLAND-US STATA BEHAVIOURAL PIPELINE COMPLETE"

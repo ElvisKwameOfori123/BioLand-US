@@ -3,10 +3,19 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
 from scipy.special import expit
+
+PUBLIC_PARAMETERS = Path("data/frozen/public/behaviour_parameters_public.csv")
+INTENSIVE_REPRESENTATIONS = [
+    "LOWER_DATA_QUALITY",
+    "CENTRAL_IPW_ROBUSTNESS",
+    "CENTRAL_PRIMARY",
+    "UPPER_DATA_QUALITY",
+]
 
 
 @dataclass(frozen=True)
@@ -18,6 +27,32 @@ class SmoothParticipationModel:
     contract_10yr: float
     pasture: float
     switchgrass: float
+
+    def as_array(self) -> np.ndarray:
+        return np.array(
+            [self.intercept, self.ln_offer, self.contract_10yr, self.pasture, self.switchgrass]
+        )
+
+
+def load_public_parameters(path: Path = PUBLIC_PARAMETERS) -> dict[str, float]:
+    """Read the Stata-exported, non-disclosive behavioural parameters."""
+    table = pd.read_csv(path)
+    return dict(zip(table["parameter"], table["value"].astype(float)))
+
+
+def participation_model(params: dict[str, float], weighting: str = "PER_CHOICE") -> SmoothParticipationModel:
+    """Smooth model from the public parameters; ACRE_WEIGHTED is the B07 sensitivity."""
+    prefix = {"PER_CHOICE": "smooth_log_dollar_", "ACRE_WEIGHTED": "acre_weighted_log_dollar_"}[weighting]
+    return SmoothParticipationModel(
+        **{term: params[prefix + term] for term in
+           ("intercept", "ln_offer", "contract_10yr", "pasture", "switchgrass")}
+    )
+
+
+def conditional_share(params: dict[str, float], representation: str, weighting: str = "PER_CHOICE") -> float:
+    """Conditional acreage share s for one intensive representation."""
+    suffix = "_acre_weighted" if weighting == "ACRE_WEIGHTED" else ""
+    return params[f"conditional_acreage_{representation.lower()}{suffix}"]
 
 
 def predict_participation(

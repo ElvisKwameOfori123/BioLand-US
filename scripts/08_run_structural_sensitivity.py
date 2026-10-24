@@ -1,259 +1,146 @@
-"""Run implemented structural sensitivity while keeping it separate from bootstrap uncertainty.
+"""Structural sensitivity, kept separate from bootstrap (statistical) uncertainty.
 
-Implemented structural dimensions
---------------------------------
-- four frozen intensive representations;
-- three Census completion structures: JOINT_EQUAL, JOINT_OWNED, JOINT_RENTED.
+Implemented structural variants (config uncertainty.implemented_structural_variants)
+    PER_CHOICE behaviour x 4 intensive representations x 2 Census surfaces
+    ACRE_WEIGHTED behaviour (CENTRAL_PRIMARY s) x 2 Census surfaces
 
-Contract duration, compensation scenario and the three independent POLYSYS
-allocation families are retained as scenario dimensions, not collapsed into a
-single uncertainty interval.
+Contract duration, compensation scenario and the three allocation families are
+scenario dimensions and are not collapsed into the range.
 
-T2-T4 institutional alternatives remain unquantified.
+Two different things are reported separately (they were previously mixed):
+    structural range   min / max across variants of the full-denominator LOWER
+                       bound (and separately of the UPPER bound)
+    coverage gap       upper - lower within a variant, caused only by
+                       unresolved rent / land cells
+
+T2-T4 institutional alternatives remain unquantified (institutional ledger).
+
+Outputs (results/structural/)
+    national_structural_variants.csv     every variant
+    national_structural_sensitivity.csv  ranges per scenario
+    county_land_structural_variants.csv  support-balanced pools for 09
+    feedstock_transfer_coverage.csv
+    institutional_readiness.csv
 """
 
 from __future__ import annotations
 
 import argparse
-from itertools import product
 from pathlib import Path
 
 import pandas as pd
 
+from bioland_us.behaviour import INTENSIVE_REPRESENTATIONS, conditional_share, load_public_parameters
 from bioland_us.config import load_config
 from bioland_us.mobilization import apply_capacity_constraint, national_summary
 from bioland_us.validation import require_columns
 
+INSTITUTIONAL_LEDGER = [
+    ("T1_POOLED_BEHAVIOURAL_TRANSMISSION", "IMPLEMENTED_CORE", True,
+     "Explicit reference transmission used in the core model."),
+    ("T2_ROLE_DIFFERENTIATED_TRANSMISSION", "DEFERRED_REQUIRES_NATIONAL_ROLE_WEIGHTS", False,
+     "No defensible national bridge between prior agricultural lessor experience and parcel-level role weights."),
+    ("T3_PROPORTIONAL_OVERLAP_REPRESENTATION", "DEFERRED_REQUIRES_FORMULA_FREEZE", False,
+     "No empirically identified national overlap parameter is frozen."),
+    ("T4_OPTIMISTIC_OWNER_AVAILABILITY_BENCHMARK", "DEFERRED_REQUIRES_FORMULA_FREEZE", False,
+     "Operator-owned acreage cannot be read as universal landlord availability without more evidence."),
+]
+
+
+def variants(params: dict, structures: list[str]):
+    for rep in INTENSIVE_REPRESENTATIONS:
+        for land in structures:
+            yield "PER_CHOICE", rep, land, conditional_share(params, rep, "PER_CHOICE")
+    for land in structures:
+        yield "ACRE_WEIGHTED", "CENTRAL_PRIMARY", land, conditional_share(params, "CENTRAL_PRIMARY", "ACRE_WEIGHTED")
+
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--access-base",
-        type=Path,
-        default=Path("data/frozen/public/behavioural_access.csv"),
-    )
-    parser.add_argument(
-        "--resource",
-        type=Path,
-        default=Path("data/frozen/public/polysys_allocation.csv"),
-    )
-    parser.add_argument(
-        "--land-dir",
-        type=Path,
-        default=Path("data/frozen/public/land_structures"),
-    )
-    parser.add_argument(
-        "--output-national",
-        type=Path,
-        default=Path("results/structural/national_structural_sensitivity.csv"),
-    )
-    parser.add_argument(
-        "--output-county-land",
-        type=Path,
-        default=Path("results/structural/county_land_structural_variants.csv"),
-    )
-    parser.add_argument(
-        "--output-feedstock-coverage",
-        type=Path,
-        default=Path("results/structural/feedstock_transfer_coverage.csv"),
-    )
-    parser.add_argument(
-        "--output-institutional-ledger",
-        type=Path,
-        default=Path("results/structural/institutional_readiness.csv"),
-    )
+    parser.add_argument("--access", type=Path, default=Path("data/frozen/public/behavioural_access.csv"))
+    parser.add_argument("--resource", type=Path, default=Path("data/frozen/public/polysys_allocation.csv"))
+    parser.add_argument("--land-dir", type=Path, default=Path("data/frozen/public/land_structures"))
+    parser.add_argument("--output-dir", type=Path, default=Path("results/structural"))
     args = parser.parse_args()
 
     cfg = load_config()
-    central_s = float(cfg["intensive"]["central_all_accept"])
-    intensive = {
-        "LOWER_DATA_QUALITY": float(cfg["intensive"]["lower_data_quality"]),
-        "CENTRAL_IPW_ROBUSTNESS": float(cfg["intensive"]["ipw_all_accept"]),
-        "CENTRAL_PRIMARY": central_s,
-        "UPPER_DATA_QUALITY": float(cfg["intensive"]["upper_data_quality"]),
+    params = load_public_parameters()
+    structures = cfg["land"]["structures"]
+    central_land = cfg["land"]["central_structure"]
+    spatial_scenario = "SUPPORT_BALANCED_REFERENCE"
+
+    access = pd.read_csv(args.access, dtype={"fips": "string"})
+    require_columns(access, ["behaviour_weighting", "scenario_id", "allocation_family", "contract_years",
+                             "fips", "land_type", "A_P", "Q_P", "p_pool"], name="behavioural access")
+    lands = {
+        name: pd.read_csv(args.land_dir / f"{name}.csv", dtype={"fips": "string"})[["fips", "land_type", "B"]]
+        for name in structures
     }
-    land_structures = ["JOINT_EQUAL", "JOINT_OWNED", "JOINT_RENTED"]
 
-    access = pd.read_csv(args.access_base, dtype={"fips": "string"})
-    require_columns(
-        access,
-        [
-            "track",
-            "scenario_id",
-            "allocation_family",
-            "contract_years",
-            "fips",
-            "land_type",
-            "A_P",
-            "Q_P",
-            "kappa",
-        ],
-        name="behavioural access",
-    )
-
-    national_rows = []
-    county_land_rows = []
-
-    for (representation, s_value), land_name in product(
-        intensive.items(),
-        land_structures,
-    ):
-        land_path = args.land_dir / f"{land_name}.csv"
-        if not land_path.exists():
-            raise FileNotFoundError(
-                f"{land_path} is required for structural sensitivity."
-            )
-
-        land = pd.read_csv(land_path, dtype={"fips": "string"})
-        require_columns(land, ["fips", "land_type", "B"], name=land_name)
-
-        x = access.copy()
-        x["kappa"] = x["kappa"] * (s_value / central_s)
-        x = x.merge(
-            land[["fips", "land_type", "B"]],
-            on=["fips", "land_type"],
-            how="left",
-            validate="m:1",
-        )
+    national, county_land = [], []
+    n_variants = 0
+    for weighting, rep, land_name, s in variants(params, structures):
+        n_variants += 1
+        x = access.loc[access["behaviour_weighting"].eq(weighting)].copy()
+        x["kappa"] = s * x["p_pool"]
+        x = x.merge(lands[land_name], on=["fips", "land_type"], how="left", validate="m:1")
         x["K"] = x["B"] * x["kappa"]
+        x["behaviour_representation"] = rep
+        x["landbase_structure"] = land_name
         constrained = apply_capacity_constraint(x)
-        constrained["behaviour_representation"] = representation
-        constrained["landbase_structure"] = land_name
-        county_land_rows.append(constrained)
+        national.append(national_summary(constrained))
+        county_land.append(constrained.loc[constrained["scenario_id"].eq(spatial_scenario)])
 
-        summary = national_summary(constrained)
-        summary["behaviour_representation"] = representation
-        summary["landbase_structure"] = land_name
-        national_rows.append(summary)
+    if n_variants != int(cfg["uncertainty"]["implemented_structural_variants"]):
+        raise AssertionError(f"Implemented {n_variants} structural variants; config expects a different count.")
 
-    county_land = pd.concat(county_land_rows, ignore_index=True)
-    national = pd.concat(national_rows, ignore_index=True)
+    national = pd.concat(national, ignore_index=True)
+    args.output_dir.mkdir(parents=True, exist_ok=True)
+    national.to_csv(args.output_dir / "national_structural_variants.csv", index=False)
+    pd.concat(county_land, ignore_index=True).to_csv(
+        args.output_dir / "county_land_structural_variants.csv", index=False)
 
-    args.output_county_land.parent.mkdir(parents=True, exist_ok=True)
-    county_land.to_csv(args.output_county_land, index=False)
-
-    grouping = [
-        "scenario_id",
-        "allocation_family",
-        "contract_years",
-    ]
-    rows = []
-    for key, group in national.groupby(grouping, dropna=False):
-        record = dict(zip(grouping, key))
-        q_lower = pd.to_numeric(group["M_Q_full_lower"], errors="coerce")
-        q_upper = pd.to_numeric(group["M_Q_full_upper"], errors="coerce")
-        a_lower = pd.to_numeric(group["M_A_full_lower"], errors="coerce")
-        a_upper = pd.to_numeric(group["M_A_full_upper"], errors="coerce")
-
-        central = group.loc[
-            group["behaviour_representation"].eq("CENTRAL_PRIMARY")
-            & group["landbase_structure"].eq("JOINT_EQUAL")
-        ]
-
-        record.update(
-            {
-                "implemented_structural_variants": len(group),
-                "M_Q_struct_min": float(q_lower.min()),
-                "M_Q_struct_max": float(q_upper.max()),
-                "M_Q_struct_range": float(q_upper.max() - q_lower.min()),
-                "M_A_struct_min": float(a_lower.min()),
-                "M_A_struct_max": float(a_upper.max()),
-                "M_A_struct_range": float(a_upper.max() - a_lower.min()),
-                "M_Q_central": (
-                    float(central["M_Q_full_lower"].iloc[0])
-                    if len(central) == 1
-                    else float("nan")
-                ),
-                "dimensions_in_range": (
-                    "intensive representation × Census completion structure"
-                ),
-            }
-        )
-        rows.append(record)
-
-    pd.DataFrame(rows).to_csv(args.output_national, index=False)
+    is_central = (national["behaviour_weighting"].eq("PER_CHOICE")
+                  & national["behaviour_representation"].eq("CENTRAL_PRIMARY")
+                  & national["landbase_structure"].eq(central_land))
+    keys = ["track", "scenario_id", "rent_multiplier", "allocation_family", "contract_years"]
+    ranges = (
+        national.assign(coverage_gap=national["M_Q_full_upper"] - national["M_Q_full_lower"])
+        .groupby(keys, dropna=False)
+        .agg(variants=("M_Q_full_lower", "size"),
+             M_Q_lower_struct_min=("M_Q_full_lower", "min"),
+             M_Q_lower_struct_max=("M_Q_full_lower", "max"),
+             M_Q_upper_struct_min=("M_Q_full_upper", "min"),
+             M_Q_upper_struct_max=("M_Q_full_upper", "max"),
+             max_coverage_gap=("coverage_gap", "max"))
+        .reset_index()
+        .merge(national.loc[is_central, keys + ["M_Q_full_lower"]].rename(
+            columns={"M_Q_full_lower": "M_Q_central_lower"}), on=keys, how="left", validate="1:1")
+    )
+    ranges["M_Q_struct_range"] = ranges["M_Q_lower_struct_max"] - ranges["M_Q_lower_struct_min"]
+    ranges.to_csv(args.output_dir / "national_structural_sensitivity.csv", index=False)
 
     resource = pd.read_csv(args.resource)
-    require_columns(
-        resource,
-        [
-            "allocation_family",
-            "feedstock",
-            "A_P",
-            "Q_P",
-            "transfer_status",
-        ],
-        name="POLYSYS resource",
+    coverage = (
+        resource.assign(A_direct=resource["A_P"].where(resource["directly_tested_species"], 0.0),
+                        Q_direct=resource["Q_P"].where(resource["directly_tested_species"], 0.0))
+        .groupby("allocation_family")[["A_P", "Q_P", "A_direct", "Q_direct"]].sum()
     )
-    resource["directly_tested_species"] = resource["transfer_status"].eq(
-        "DIRECT_EXPERIMENTAL_SPECIES"
-    )
+    coverage = pd.DataFrame({
+        "tested_species_harvest_share": coverage["A_direct"] / coverage["A_P"],
+        "tested_species_production_share": coverage["Q_direct"] / coverage["Q_P"],
+    }).reset_index()
+    coverage["interpretation"] = ("Share of the POLYSYS allocation directly represented by species tested "
+                                  "in Study A; untested species are transferred, not set to zero.")
+    coverage.to_csv(args.output_dir / "feedstock_transfer_coverage.csv", index=False)
 
-    coverage_rows = []
-    for family, group in resource.groupby("allocation_family"):
-        a_total = float(group["A_P"].sum())
-        q_total = float(group["Q_P"].sum())
-        direct = group["directly_tested_species"]
-        coverage_rows.append(
-            {
-                "allocation_family": family,
-                "tested_species_harvest_share": (
-                    float(group.loc[direct, "A_P"].sum()) / a_total if a_total else float("nan")
-                ),
-                "tested_species_production_share": (
-                    float(group.loc[direct, "Q_P"].sum()) / q_total if q_total else float("nan")
-                ),
-                "interpretation": (
-                    "Share of the POLYSYS allocation directly represented by species "
-                    "tested in Study A; untested species are not assigned zero."
-                ),
-            }
-        )
-    pd.DataFrame(coverage_rows).to_csv(
-        args.output_feedstock_coverage,
-        index=False,
-    )
+    pd.DataFrame(INSTITUTIONAL_LEDGER, columns=["transmission_id", "status", "quantitative", "reason"]).to_csv(
+        args.output_dir / "institutional_readiness.csv", index=False)
 
-    ledger = pd.DataFrame(
-        [
-            {
-                "transmission_id": "T1_POOLED_BEHAVIOURAL_TRANSMISSION",
-                "status": "IMPLEMENTED_CORE",
-                "quantitative": True,
-                "reason": "Explicit reference transmission used in the core model.",
-            },
-            {
-                "transmission_id": "T2_ROLE_DIFFERENTIATED_TRANSMISSION",
-                "status": "DEFERRED_REQUIRES_NATIONAL_ROLE_WEIGHTS",
-                "quantitative": False,
-                "reason": (
-                    "No defensible national bridge has been frozen between prior "
-                    "agricultural lessor experience and parcel-level role weights."
-                ),
-            },
-            {
-                "transmission_id": "T3_PROPORTIONAL_OVERLAP_REPRESENTATION",
-                "status": "DEFERRED_REQUIRES_FORMULA_FREEZE",
-                "quantitative": False,
-                "reason": "No empirically identified national overlap parameter is frozen.",
-            },
-            {
-                "transmission_id": "T4_OPTIMISTIC_OWNER_AVAILABILITY_BENCHMARK",
-                "status": "DEFERRED_REQUIRES_FORMULA_FREEZE",
-                "quantitative": False,
-                "reason": (
-                    "Operator-owned acreage cannot be interpreted as universal "
-                    "landlord availability without additional evidence."
-                ),
-            },
-        ]
-    )
-    ledger.to_csv(args.output_institutional_ledger, index=False)
-
-    print("PASS: implemented structural sensitivity complete.")
-    print("Statistical uncertainty was not mixed into the structural range.")
-    print(f"  national={args.output_national}")
-    print(f"  county-land={args.output_county_land}")
+    print(f"PASS: {n_variants} structural variants; statistical uncertainty not mixed in.")
+    show = ranges.loc[ranges["scenario_id"].isin(["EXP_ABS_100", spatial_scenario]) & ranges["contract_years"].eq(5)]
+    print(show[["scenario_id", "allocation_family", "M_Q_central_lower", "M_Q_lower_struct_min",
+                "M_Q_lower_struct_max", "max_coverage_gap"]].round(4).to_string(index=False))
 
 
 if __name__ == "__main__":
