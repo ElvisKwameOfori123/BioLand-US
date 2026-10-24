@@ -19,6 +19,7 @@ then in the code, and record the date.
 | B10 | IPW robustness: stabilized inverse probability of exactness. | `stata/03` | Exact cases may be selected. | s = 0.8595. |
 | B11 | Study-A rent matched on survey county × land type, only for respondents naming one survey county. | `stata/05` | Multi-county respondents have no unique local rent. | 1,157 choices, 370 respondents. |
 | B12 | Outside the tested offer range [$50, $300] the smooth model is bounded: p ∈ [0, p(50)] below, [p(300), 1] above. | `scripts/10` | No experimental evidence outside the range. | Evidence bounds on rent-indexed results. |
+| B13 | The conditional share is tested for an offer response by fractional logit on the 203 exact cases (categorical offer, contract, land, crop); a flat response justifies one national s. | `stata/03` | Higher payments could also raise acreage committed. | Joint offer p = 0.246: no s(offer) function. |
 | **POLYSYS** |||||
 | P01 | Keep POLYSYS, 2041, $70/dry ton, Crop + Pasture, seven perennial crops. | `scripts/02` | Central Billion-Ton case. | 36,921 source rows. |
 | P02 | `emerging` and `mature-market high` are verified identical; three independent allocation families remain. | `scripts/02` | Avoids double-counting one allocation. | Family-balanced means use 3 families. |

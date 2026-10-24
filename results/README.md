@@ -11,8 +11,8 @@ Everything here is produced by `scripts/00_run_core.py` (and Stata for
 | `structural/` | Structural variants, ranges, feedstock coverage, institutional ledger |
 | `robustness/` | Transport alternatives, evidence-support bounds, support exposure |
 | `spatial/` | County robustness table for maps |
-| `manuscript/` | Tables quoted in the paper |
+| `manuscript/` | Tables 2–3, `manuscript_numbers.csv` (every number quoted in the text) and the Word review file |
 | `validation/` | Reconciliation ledger (every check must be PASS) |
-| `figures/` | Figures 1–5 as PDF and 300-dpi PNG |
+| `figures/main`, `figures/supplementary` | Main Figs 1–4 and Figs S1–S5, PDF and 300-dpi PNG |
 
 `restricted/` holds respondent-level Stata output and is git-ignored.

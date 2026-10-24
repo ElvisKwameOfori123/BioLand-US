@@ -18,6 +18,9 @@ Outputs (results/robustness/)
     offer_affordability_national.csv    M_Q when offers above the payable land rent
                                         (bioland_us.economics, E01) are refused
     offer_affordability_by_feedstock.csv  payable rent vs local rent by crop and land
+    offer_affordability_dollar_year.csv   headline affordability for other price dollar years
+    offer_vs_payable_rows.csv             per POLYSYS row: headline offer and payable rent
+    loco_national.csv                     national M_Q under each leave-one-county-out model
 
 Also: PRIMARY_REGIONAL_RENT_FALLBACK fills the 73 no-rent cells with the USDA-region
 mean state rent (R03 sensitivity) in transport_national.csv.
@@ -67,6 +70,7 @@ def main() -> None:
     parser.add_argument("--rents", type=Path, default=Path("data/frozen/public/rent_context.csv"))
     parser.add_argument("--transport", type=Path, default=Path("results/behaviour/transport_coefficients.csv"))
     parser.add_argument("--deterministic", type=Path, default=Path("results/deterministic/national_mobilization.csv"))
+    parser.add_argument("--participation", type=Path, default=Path("results/behaviour/participation_coefficients.csv"))
     parser.add_argument("--cpi", type=Path, default=Path("data/frozen/public/cpi_u_annual.csv"))
     parser.add_argument("--budget", type=Path, default=Path("data/frozen/public/perennial_cost_budget.csv"))
     parser.add_argument("--output-dir", type=Path, default=Path("results/robustness"))
@@ -128,11 +132,27 @@ def main() -> None:
                 cls = np.select([~np.isfinite(offer), offer < 50, offer <= 300],
                                 ["UNSUPPORTED_RENT", "BELOW_SUPPORT", "WITHIN_SUPPORT"], "ABOVE_SUPPORT")
                 e = pd.DataFrame({"allocation_family": resource["allocation_family"], "land_type": resource["land_type"],
-                                  "support": cls, "A_P": resource["A_P"]})
+                                  "support": cls, "A_P": resource["A_P"], "Q_P": resource["Q_P"]})
                 e = pd.concat([e, e.assign(land_type="All")], ignore_index=True)
-                share = e.groupby(["allocation_family", "land_type", "support"])["A_P"].sum()
-                share = (share / share.groupby(level=[0, 1]).transform("sum")).rename("acre_share").reset_index()
+                tot = e.groupby(["allocation_family", "land_type", "support"])[["A_P", "Q_P"]].sum()
+                den = tot.groupby(level=[0, 1]).transform("sum")
+                share = pd.DataFrame({"acre_share": tot["A_P"] / den["A_P"],
+                                      "production_share": tot["Q_P"] / den["Q_P"]}).reset_index()
                 exposure.append(share.assign(scenario_id=scen.scenario_id, rent_multiplier=scen.rent_multiplier))
+
+    # ---- B06 check: leave-one-county-out participation models, nationally -----
+    from bioland_us.behaviour import SmoothParticipationModel
+    pc = pd.read_csv(args.participation)
+    loco_rows = []
+    for name, g in pc.loc[pc["model"].str.startswith("LOCO_")].groupby("model"):
+        b = dict(zip(g["term"], g["b"]))
+        m_loco = SmoothParticipationModel(b["intercept"], b["ln_offer"], b["contract10"], b["pasture"], b["switchgrass"])
+        for scen_id, offer in (("EXP_ABS_100", np.full(len(rent), 100.0)),
+                               ("SUPPORT_BALANCED_REFERENCE",
+                                multipliers.set_index("scenario_id").loc["SUPPORT_BALANCED_REFERENCE", "rent_multiplier"] * rent)):
+            res = model.run(model.participation(offer, 5, m_loco), s)
+            loco_rows.append({"left_out": name.replace("LOCO_", ""), "scenario_id": scen_id, "contract_years": 5,
+                              "M_Q_full_lower": float(np.mean(res["M_Q_full_lower"]))})
 
     # ---- R03: regional rent fallback for cells without rent context -----------
     regional_rent = r["rent_2012usd_regional_fallback"].to_numpy(float)
@@ -192,7 +212,32 @@ def main() -> None:
                 rows[-1]["affordable_share_of_costed_Q"] = np.mean([x["affordable_share_of_costed_Q"] for x in rows[:-1]])
                 afford += rows
 
+    # Offer vs payable rent at the rent-indexed headline (figure 2c), and the
+    # dollar-year sensitivity of the $70/dt price (E01 assumption check).
+    head_m = float(multipliers.loc[multipliers["scenario_id"].eq("SUPPORT_BALANCED_REFERENCE"), "rent_multiplier"].iloc[0])
+    payable["offer_headline"] = head_m * rent
+    years_head = cfg["experiment"]["contract_years"][0]
+    p_head = model.participation(head_m * rent, years_head, primary)
+    dollar_rows = []
+    for price_year in econ["price_dollar_year_sensitivity"]:
+        price_y = cfg["polysys"]["biomass_price_usd_per_dry_ton"] * cpi.loc[2012] / cpi.loc[price_year]
+        for case, cost_label in (("LOW", "LOW_COST"), ("HIGH", "HIGH_COST")):
+            lm = np.full(len(resource), np.nan)
+            for name in crop.dropna().unique():
+                rows_c = (crop == name).to_numpy()
+                lm[rows_c] = max_land_payment(yield_dt[rows_c], price_y, budget.loc[(name, case)],
+                                              stand_years=econ["stand_years"], discount_rate=econ["discount_rate"],
+                                              year2_yield_share=econ["year2_yield_share"], cost_deflator=deflator)
+            offer_h = head_m * rent
+            ok = costed & np.isfinite(offer_h) & (offer_h <= lm)
+            res = model.run(np.where(costed & ~ok & np.isfinite(offer_h), 0.0, p_head), s)
+            dollar_rows.append({"price_dollar_year": price_year, "price_2012usd_per_dt": price_y,
+                                "cost_case": cost_label, "M_Q_full_lower": float(np.mean(res["M_Q_full_lower"]))})
+
     args.output_dir.mkdir(parents=True, exist_ok=True)
+    pd.DataFrame(dollar_rows).to_csv(args.output_dir / "offer_affordability_dollar_year.csv", index=False)
+    pd.DataFrame(loco_rows).to_csv(args.output_dir / "loco_national.csv", index=False)
+    payable.to_csv(args.output_dir / "offer_vs_payable_rows.csv", index=False)
     pd.DataFrame(afford).to_csv(args.output_dir / "offer_affordability_national.csv", index=False)
     summary = (payable.loc[payable["l_max_low_cost"].notna() & payable["A_P"].gt(0)]
                .groupby(["feedstock", "land_type"])
@@ -222,6 +267,7 @@ def main() -> None:
     print(a.pivot(index="scenario_id", columns="cost_case", values=["M_Q_full_lower", "affordable_share_of_costed_Q"])
           .round(3).to_string())
     print(summary.round(1).to_string(index=False))
+    print(pd.DataFrame(dollar_rows).round(3).to_string(index=False))
 
 
 def weighted_median(values: pd.Series, weights: pd.Series) -> float:

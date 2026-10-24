@@ -22,6 +22,7 @@ set more off
 *
 * Central rule (B09): exact shares are kept; every other accepted choice takes
 * the exact-case mean projected into its own feasible interval.
+* Offer response (B13): fractional logit of exact shares on the randomized design.
 * IPW robustness (B10): the same projection using a stabilized inverse-
 * probability-of-exactness weighted exact mean.
 * Acreage-weighted s (B07): central shares weighted by the owned acres of the
@@ -74,6 +75,36 @@ quietly summarize share_exact_observed [aweight = ipw]
 scalar MU_IPW = r(mean)
 gen double share_central_ipw = cond(exact, share_raw, ///
     min(share_upper, max(share_lower, MU_IPW)))
+
+* B13 offer response of the conditional share: fractional logit on exact cases.
+* A flat response supports a single national s (no s(offer) function).
+fracreg logit share_exact_observed i.offer i.contract_years pasture switchgrass ///
+    if exact, vce(cluster id)
+testparm i.offer
+local p_offer = r(p)
+local n_fr = e(N)
+local cl_fr = e(N_clust)
+margins offer
+matrix FR = r(table)
+preserve
+    clear
+    set obs 4
+    gen double offer = .
+    gen double share = .
+    gen double ll = .
+    gen double ul = .
+    local offers 50 100 200 300
+    forvalues j = 1/4 {
+        replace offer = `: word `j' of `offers'' in `j'
+        replace share = FR[1, `j'] in `j'
+        replace ll = FR[5, `j'] in `j'
+        replace ul = FR[6, `j'] in `j'
+    }
+    gen double joint_offer_p = `p_offer'
+    gen long exact_choices = `n_fr'
+    gen long clusters = `cl_fr'
+    export delimited using "$RESULTS_P/conditional_acreage_by_offer.csv", replace
+restore
 
 * B07 acreage weight: owned acres of the offered land type when usable,
 * otherwise total acres.

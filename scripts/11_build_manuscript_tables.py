@@ -139,6 +139,10 @@ def main() -> None:
     out_m, out_v = R / "manuscript", R / "validation"
     out_m.mkdir(parents=True, exist_ok=True)
     out_v.mkdir(parents=True, exist_ok=True)
+
+    tables = paper_tables(R, cfg, det, head, county_detail=detail)
+    for name, frame in tables.items():
+        frame.to_csv(out_m / f"{name}.csv", index=False)
     head.to_csv(out_m / "headline_results.csv", index=False)
     regional.to_csv(out_m / "regional_mobilization.csv", index=False)
     binding.to_csv(out_m / "county_binding_summary.csv", index=False)
@@ -153,6 +157,144 @@ def main() -> None:
     show = head.loc[head["contract_years"].eq(5)].drop(columns=["contract_years"])
     print(f"PASS: {len(ledger)} reconciliation checks.")
     print(show.round(3).to_string(index=False))
+
+
+def paper_tables(R: Path, cfg: dict, det: pd.DataFrame, head: pd.DataFrame, county_detail: pd.DataFrame) -> dict:
+    """Table 2, Table 3, land-class table and the quoted-numbers ledger."""
+    H, Y = "SUPPORT_BALANCED_REFERENCE", 5
+    fam = det.loc[det["allocation_family"].ne("FAMILY_BALANCED") & det["contract_years"].eq(Y)]
+    h = head.loc[head["contract_years"].eq(Y)].set_index("scenario_id")
+    hr = h.loc[H]
+    central = float(hr["M_Q_central"])
+
+    # ---- Table 2: mobilization by offer design --------------------------------
+    exposure = pd.read_csv(R / "robustness/support_exposure.csv")
+    within = (exposure.loc[exposure["land_type"].eq("All") & exposure["support"].eq("WITHIN_SUPPORT")]
+              .groupby("scenario_id")["production_share"].mean())
+    spread = fam.groupby("scenario_id")["M_Q_full_lower"].agg(lambda v: v.max() - v.min())
+    order = ["EXP_ABS_50", "EXP_ABS_100", "EXP_ABS_200", "EXP_ABS_300", "RENT_PARITY_BENCHMARK",
+             "SUPPORT_ENTRY_REFERENCE", H, "HIGHER_COMPENSATION_200_REFERENCE", "HIGHER_COMPENSATION_300_REFERENCE"]
+    t2 = pd.DataFrame({
+        "scenario_id": order,
+        "offer_design": [h.loc[s, "track"] for s in order],
+        "rent_multiplier": [det.loc[det["scenario_id"].eq(s), "rent_multiplier"].iloc[0] for s in order],
+        "M_Q_central": [h.loc[s, "M_Q_central"] for s in order],
+        "boot_p025": [h.loc[s, "M_Q_boot_p025"] for s in order],
+        "boot_p975": [h.loc[s, "M_Q_boot_p975"] for s in order],
+        "unmet_share": [1 - h.loc[s, "M_Q_central"] for s in order],
+        "family_range_pp": [100 * spread[s] for s in order],
+        "within_tested_range_share_of_Q": [within.get(s, 1.0) for s in order],
+        "M_Q_affordable_low_cost": [h.loc[s, "M_Q_affordable_low_cost"] for s in order],
+        "M_Q_affordable_high_cost": [h.loc[s, "M_Q_affordable_high_cost"] for s in order],
+    })
+
+    # ---- Table 3: robustness synthesis at the headline ------------------------
+    var = pd.read_csv(R / "structural/national_structural_variants.csv")
+    vb = var.loc[var["scenario_id"].eq(H) & var["contract_years"].eq(Y)].groupby(
+        ["behaviour_weighting", "behaviour_representation", "landbase_structure"])["M_Q_full_lower"].mean()
+    per_choice = vb.xs("PER_CHOICE", level="behaviour_weighting")
+    land_c = cfg["land"]["central_structure"]
+    loco = pd.read_csv(R / "robustness/loco_national.csv")
+    loco = loco.loc[loco["scenario_id"].eq(H), "M_Q_full_lower"]
+    dollar = pd.read_csv(R / "robustness/offer_affordability_dollar_year.csv")["M_Q_full_lower"]
+    hr10 = head.loc[head["contract_years"].eq(10)].set_index("scenario_id").loc[H]
+    rows = [
+        ("Behavioural sampling", "Paired respondent bootstrap, 1,000 draws", hr["M_Q_boot_p025"], hr["M_Q_boot_p975"], "S7"),
+        ("Leave one survey county out", "12 participation models", loco.min(), loco.max(), "S4"),
+        ("Conditional acreage representation", "Lower, IPW, central, upper", per_choice.xs(land_c, level="landbase_structure").min(),
+         per_choice.xs(land_c, level="landbase_structure").max(), "S5"),
+        ("Census suppression completion", "Farmland-weighted vs equal shares", hr["M_Q_equal_land"], central, "S3"),
+        ("Person-to-acreage weighting", "Acreage-weighted participation and share", hr["M_Q_acre_weighted"], central, "S4"),
+        ("Out-of-range offers", "Monotone evidence bounds outside $50–300", hr["M_Q_evidence_lower"], hr["M_Q_evidence_upper"], "S9"),
+        ("Rent in participation", "Offer + rent model", hr["M_Q_offer_plus_rent"], central, "S9"),
+        ("Offer-to-rent ratio (stress test)", "Ratio model; restriction rejected, p = 0.0002", central, hr["M_Q_ratio_only"], "S9"),
+        ("Missing rent", "USDA-region fallback for 73 cells", central, hr["M_Q_regional_rent_fallback"], "S9"),
+        ("POLYSYS allocation family", "Three independent allocations", fam.loc[fam["scenario_id"].eq(H), "M_Q_full_lower"].min(),
+         fam.loc[fam["scenario_id"].eq(H), "M_Q_full_lower"].max(), "S2"),
+        ("Contract length", "10-year instead of 5-year", hr10["M_Q_central"], central, "S7"),
+        ("Offer affordability at $70/dt", "Low / high cost budget; 2016–2022 price dollars", dollar.min(), dollar.max(), "S10"),
+    ]
+    t3 = pd.DataFrame(rows, columns=["check", "what_varies", "M_Q_low", "M_Q_high", "supplement"])
+    t3["largest_shift_pp"] = 100 * np.maximum((t3["M_Q_low"] - central).abs(), (t3["M_Q_high"] - central).abs())
+    t3["verdict"] = np.select([t3["largest_shift_pp"] <= 5, t3["largest_shift_pp"] <= 15],
+                              ["Robust (≤5 pp)", "Moderate (5–15 pp)"], "Large (>15 pp)")
+    stress = t3["check"].str.contains("stress test")
+    t3.loc[stress, "verdict"] = "Stress test only (model rejected)"
+    t3.insert(2, "M_Q_central", central)
+
+    # ---- land classes ---------------------------------------------------------
+    d = county_detail.copy()
+    lc_det = pd.read_csv(R / "deterministic/county_land_mobilization.csv", usecols=["scenario_id", "contract_years",
+                         "allocation_family", "land_type", "Q_P", "Q_M_full_lower"])
+    lc = (lc_det.loc[lc_det["contract_years"].eq(Y)]
+          .groupby(["scenario_id", "allocation_family", "land_type"])[["Q_P", "Q_M_full_lower"]].sum())
+    lc = (lc["Q_M_full_lower"] / lc["Q_P"]).groupby(level=["scenario_id", "land_type"]).mean().rename("M_Q_central").reset_index()
+    ex = (exposure.loc[exposure["land_type"].ne("All")].groupby(["scenario_id", "land_type", "support"])["production_share"]
+          .mean().unstack("support").reset_index())
+    land_class = lc.merge(ex, on=["scenario_id", "land_type"], how="left")
+
+    # ---- quoted numbers ---------------------------------------------------------
+    sp = pd.read_csv(R / "spatial/county_spatial_robustness.csv", dtype={"fips": "string"})
+    sp5 = sp.loc[sp["contract_years"].eq(Y) & sp["A_P"].gt(0)]
+    rho = sp5.groupby("fips")["rho_central"].median()
+    unresolved = sp5.groupby("fips")["pressure_class"].agg(lambda x: (x == "unresolved").all())
+    cls = pd.Series(np.select([unresolved.reindex(rho.index), np.isinf(rho), rho >= 2, rho >= 1, rho >= 0.5],
+                              ["unresolved", "zero_capacity", "ge_2", "c1_2", "c05_1"], "lt_05"), index=rho.index)
+    n_fam = sp5.groupby("fips")["allocation_family"].nunique()
+    agree = sp5.groupby("fips")["robust_top10_flag"].sum()
+    unmet = sp.loc[sp["contract_years"].eq(Y)].groupby("fips")["unmet_Q_central"].sum()
+    unmet = unmet[unmet > 0].sort_values(ascending=False)
+    top = unmet.iloc[: int(np.ceil(0.1 * len(unmet)))].sum() / unmet.sum()
+    regional = pd.read_csv(R / "manuscript/regional_mobilization.csv", dtype={"state_fips": "string"})
+    beh = pd.read_csv(R / "behaviour/participation_margins.csv")
+    cond = pd.read_csv(R / "behaviour/conditional_acreage_by_offer.csv")
+    coef = pd.read_csv(R / "behaviour/participation_coefficients.csv")
+    pay = pd.read_csv(R / "robustness/offer_affordability_by_feedstock.csv").set_index(["feedstock", "land_type"])
+    sb = lambda s: h.loc[s, "M_Q_central"]  # noqa: E731
+    nums = {
+        "participation_p50": beh.loc[beh["offer"].eq(50), "p_categorical"].iloc[0],
+        "participation_p300": beh.loc[beh["offer"].eq(300), "p_categorical"].iloc[0],
+        "conditional_share_min_by_offer": cond["share"].min(),
+        "conditional_share_max_by_offer": cond["share"].max(),
+        "conditional_share_offer_joint_p": cond["joint_offer_p"].iloc[0],
+        "conditional_share_central": float(pd.read_csv("data/frozen/public/behaviour_parameters_public.csv")
+                                           .set_index("parameter").loc["conditional_acreage_central_primary", "value"]),
+        "pasture_coefficient_p": coef.loc[coef["model"].eq("SMOOTH") & coef["term"].eq("pasture"), "p"].iloc[0],
+        "MQ_exp50": sb("EXP_ABS_50"), "MQ_exp100": sb("EXP_ABS_100"), "MQ_exp300": sb("EXP_ABS_300"),
+        "MQ_rent_parity": sb("RENT_PARITY_BENCHMARK"), "MQ_m335": sb("SUPPORT_ENTRY_REFERENCE"),
+        "MQ_headline": central, "MQ_headline_boot_p025": hr["M_Q_boot_p025"], "MQ_headline_boot_p975": hr["M_Q_boot_p975"],
+        "MQ_headline_struct_min": hr["M_Q_struct_min"], "MQ_headline_struct_max": hr["M_Q_struct_max"],
+        "MQ_headline_acre_weighted": hr["M_Q_acre_weighted"],
+        "MQ_headline_affordable_low_cost": hr["M_Q_affordable_low_cost"],
+        "MQ_headline_affordable_high_cost": hr["M_Q_affordable_high_cost"],
+        "MQ_headline_affordable_range_all_dollar_years_min": dollar.min(),
+        "MQ_headline_affordable_range_all_dollar_years_max": dollar.max(),
+        "MQ_headline_crop": land_class.query("scenario_id == @H and land_type == 'Crop'")["M_Q_central"].iloc[0],
+        "MQ_headline_pasture": land_class.query("scenario_id == @H and land_type == 'Pasture'")["M_Q_central"].iloc[0],
+        "within_range_share_rent_parity": within["RENT_PARITY_BENCHMARK"], "within_range_share_headline": within[H],
+        "unmet_top10pct_counties_share": top,
+        "unmet_share_texas": unmet[unmet.index.str[:2] == "48"].sum() / unmet.sum(),
+        "unmet_share_tx_ok_nm": unmet[unmet.index.str[:2].isin(SOUTHERN_PLAINS)].sum() / unmet.sum(),
+        "MQ_headline_excl_tx_ok_nm": regional.query("scenario_id == @H and contract_years == @Y and "
+                                                    "state_fips == 'NATIONAL_EXCL_TX_OK_NM'")["M_Q_central"].iloc[0],
+        "texas_share_of_Q_P": regional.query("scenario_id == @H and contract_years == @Y and state_fips == '48'")[
+            "share_of_national_Q_P"].iloc[0],
+        "counties_pressure_lt_05": int((cls == "lt_05").sum()), "counties_pressure_05_1": int((cls == "c05_1").sum()),
+        "counties_pressure_1_2": int((cls == "c1_2").sum()), "counties_pressure_ge_2": int((cls == "ge_2").sum()),
+        "counties_zero_capacity": int((cls == "zero_capacity").sum()), "counties_unresolved": int((cls == "unresolved").sum()),
+        "counties_P_bind_ge_08": int((sp5.groupby("fips")["P_bind"].mean() >= 0.8).sum()),
+        "counties_P_top10_ge_08": int((sp5.groupby("fips")["P_top10_risk"].mean() >= 0.8).sum()),
+        "counties_in_all_three_families": int((n_fam == 3).sum()),
+        "hotspot_in_3_families": int(((n_fam == 3) & (agree == 3)).sum()),
+        "hotspot_in_2_families": int(((n_fam == 3) & (agree == 2)).sum()),
+        "hotspot_in_1_family": int(((n_fam == 3) & (agree == 1)).sum()),
+        "switchgrass_payable_rent_low_cost_pasture": pay.loc[("Switchgrass", "Pasture"), "median_l_max_low_cost"],
+        "switchgrass_payable_rent_low_cost_crop": pay.loc[("Switchgrass", "Crop"), "median_l_max_low_cost"],
+        "loco_headline_min": loco.min(), "loco_headline_max": loco.max(),
+    }
+    ledger = pd.DataFrame({"key": list(nums), "value": [float(v) for v in nums.values()]})
+    return {"table2_mobilization_by_offer": t2, "table3_robustness_synthesis": t3,
+            "land_class_mobilization": land_class, "manuscript_numbers": ledger}
 
 
 if __name__ == "__main__":

@@ -53,3 +53,4 @@ cost_budget_dollar_year = 2015
 stand_years = 10
 discount_rate = 0.05
 year2_yield_share = 0.5
+price_dollar_year_sensitivity = [2016, 2020, 2022]

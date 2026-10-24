@@ -18,5 +18,6 @@ Reusable logic lives in `src/bioland_us/`; scripts only read, call and write.
 | `08_run_structural_sensitivity.py` | 10 structural variants, institutional ledger (S02) | 05, land structures | `results/structural/` |
 | `09_build_spatial_outputs.py` | County robustness (S01) | 08, 07 | `results/spatial/` |
 | `10_transport_robustness.py` | Ratio / offer+rent transports, evidence bounds (B12) | 02–06, Stata 05 | `results/robustness/` |
-| `11_build_manuscript_tables.py` | Manuscript tables and reconciliation ledger | 06–10 | `results/manuscript/`, `results/validation/` |
-| `12_make_figures.py` | Five main figures, read-only from result CSVs (`--skip-maps` without geometry) | `results/`, county geometry | `results/figures/` |
+| `11_build_manuscript_tables.py` | Tables 2–3, land-class table, quoted-numbers ledger, reconciliation ledger | 06–10 | `results/manuscript/`, `results/validation/` |
+| `12_make_figures.py` | Main Figs 1–4 and supplementary Figs S1–S5, read-only from result CSVs (`--skip-maps` without geometry) | `results/`, county geometry | `results/figures/main`, `results/figures/supplementary` |
+| `13_build_review_document.py` | Word review file with main figures, draft captions and Tables 1–3 | `results/` | `results/manuscript/BioLandUS_FiguresTables_Review.docx` |
