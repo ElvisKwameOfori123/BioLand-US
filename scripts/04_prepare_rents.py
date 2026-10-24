@@ -1,15 +1,21 @@
-"""Construct the frozen county-by-land rent context for the POLYSYS universe.
+"""Build cash-rent context from the raw NASS exports.
 
-Hierarchy
----------
-1. exact county, same land type, 2022
-2. same county, same land type, nearest year within ±3 years
-   (ties resolved toward the earlier year)
-3. official state, same land type, 2022
-4. unsupported
+Inputs
+    data/raw/9A9F55D7-E267-38C6-ACB9-DF106291B5A7.csv   county cash rents (wide export)
+    data/raw/73DE05FF-2AD9-384C-AFB1-E47106AFC525.csv   2022 state cash rents
+    data/frozen/public/cpi_u_annual.csv                 CPI-U annual averages
 
-All supported rents are converted to constant 2012 US dollars.
-Unsupported cells remain missing; they are never interpreted as zero rent.
+Land-type mapping (decision R01)
+    Crop    = RENT, CASH, CROPLAND, NON-IRRIGATED  (irrigated rent is excluded)
+    Pasture = RENT, CASH, PASTURELAND
+
+Outputs (hierarchy in bioland_us.rents, decision R02)
+    data/frozen/public/rent_context.csv          POLYSYS cells, reference year 2022,
+                                                 state 2022 fallback
+    data/frozen/public/studyA_rent_context.csv   Study-A survey counties, reference
+                                                 year 2012, Michigan 2012 state
+                                                 pasture rent as fallback
+                                                 (data/frozen/public/michigan_state_rent_2012.csv)
 """
 
 from __future__ import annotations
@@ -17,223 +23,100 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
 
-from bioland_us.validation import require_columns, require_unique
+from bioland_us.geography import normalize_fips
+from bioland_us.rents import rent_context
+
+COUNTY_COLUMNS = {
+    "RENT, CASH, CROPLAND, NON-IRRIGATED - EXPENSE, MEASURED IN $ / ACRE  -  <b>VALUE</b>": "Crop",
+    "RENT, CASH, PASTURELAND - EXPENSE, MEASURED IN $ / ACRE  -  <b>VALUE</b>": "Pasture",
+}
+STATE_ITEMS = {
+    "RENT, CASH, CROPLAND, NON-IRRIGATED - EXPENSE, MEASURED IN $ / ACRE": "Crop",
+    "RENT, CASH, PASTURELAND - EXPENSE, MEASURED IN $ / ACRE": "Pasture",
+}
+STUDY_A_FIPS = ["26005", "26015", "26023", "26067", "26073", "26091",
+                "26093", "26123", "26145", "26151", "26157", "26159"]
 
 
-def standardize_land_type(series: pd.Series) -> pd.Series:
-    x = series.astype("string").str.strip().str.lower()
-    return x.map(
-        {
-            "crop": "Crop",
-            "cropland": "Crop",
-            "pasture": "Pasture",
-            "pastureland": "Pasture",
-        }
-    )
+def to_number(values: pd.Series) -> pd.Series:
+    """NASS values: numbers with commas; "(D)", "(NA)" and blanks become missing."""
+    return pd.to_numeric(values.astype("string").str.replace(",", "", regex=False).str.strip(),
+                         errors="coerce").astype(float)
 
 
-def convert_to_2012(
-    values: pd.Series,
-    years: pd.Series,
-    cpi: pd.DataFrame,
-) -> pd.Series:
-    idx = cpi.set_index("year")["cpi"]
-    if 2012 not in idx.index:
-        raise ValueError("CPI table must contain 2012.")
-    missing_years = sorted(set(years.dropna().astype(int)) - set(idx.index.astype(int)))
-    if missing_years:
-        raise ValueError(f"CPI table missing years: {missing_years}")
-    return values * float(idx.loc[2012]) / years.map(idx)
+def county_panel(path: Path) -> pd.DataFrame:
+    raw = pd.read_csv(path, dtype="string")
+    # "OTHER (COMBINED) COUNTIES" rows carry no county code and are not county rents.
+    raw = raw.loc[raw["Geo Level"].eq("COUNTY") & raw["Period"].eq("YEAR") & raw["County ANSI"].notna()]
+    fips = normalize_fips(raw["State ANSI"].str.zfill(2) + raw["County ANSI"].str.zfill(3))
+    parts = [
+        pd.DataFrame({"fips": fips, "land_type": land,
+                      "year": pd.to_numeric(raw["Year"]).astype(int),
+                      "rent_nominal": to_number(raw[col])})
+        for col, land in COUNTY_COLUMNS.items()
+    ]
+    panel = pd.concat(parts, ignore_index=True)
+    panel = panel.loc[panel["fips"].notna() & panel["rent_nominal"].notna()]
+    if panel.duplicated(["fips", "land_type", "year"]).any():
+        raise ValueError("County rent panel is not unique by fips x land x year.")
+    return panel
+
+
+def state_table(path: Path) -> pd.DataFrame:
+    raw = pd.read_csv(path, dtype="string")
+    raw = raw.loc[raw["Geo Level"].eq("STATE") & raw["Data Item"].isin(STATE_ITEMS)]
+    out = pd.DataFrame({
+        "state_fips": raw["State ANSI"].str.zfill(2),
+        "land_type": raw["Data Item"].map(STATE_ITEMS),
+        "year": pd.to_numeric(raw["Year"]).astype(int),
+        "rent_nominal": to_number(raw["Value"]),
+    })
+    if out.duplicated(["state_fips", "land_type", "year"]).any():
+        raise ValueError("State rent table is not unique by state x land x year.")
+    return out
 
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--universe",
-        type=Path,
-        default=Path("data/frozen/public/polysys_allocation.csv"),
-        help="Canonical POLYSYS allocation used only to define target FIPS × land cells.",
-    )
-    parser.add_argument("--county", type=Path, required=True)
-    parser.add_argument("--state", type=Path, required=True)
-    parser.add_argument("--cpi", type=Path, required=True)
-    parser.add_argument(
-        "--output",
-        type=Path,
-        default=Path("data/frozen/public/rent_context.csv"),
-    )
+    parser.add_argument("--county", type=Path, default=Path("data/raw/9A9F55D7-E267-38C6-ACB9-DF106291B5A7.csv"))
+    parser.add_argument("--state", type=Path, default=Path("data/raw/73DE05FF-2AD9-384C-AFB1-E47106AFC525.csv"))
+    parser.add_argument("--cpi", type=Path, default=Path("data/frozen/public/cpi_u_annual.csv"))
+    parser.add_argument("--universe", type=Path, default=Path("data/frozen/public/polysys_allocation.csv"))
+    parser.add_argument("--michigan-state", type=Path, default=Path("data/frozen/public/michigan_state_rent_2012.csv"))
+    parser.add_argument("--output", type=Path, default=Path("data/frozen/public/rent_context.csv"))
+    parser.add_argument("--output-study-a", type=Path, default=Path("data/frozen/public/studyA_rent_context.csv"))
     args = parser.parse_args()
 
-    universe_raw = pd.read_csv(args.universe, dtype={"fips": "string"})
-    county = pd.read_csv(
-        args.county,
-        dtype={"fips": "string", "state_ansi": "string"},
-    )
-    state = pd.read_csv(args.state, dtype={"state_ansi": "string"})
-    cpi = pd.read_csv(args.cpi)
+    county = county_panel(args.county)
+    state = state_table(args.state)
+    cpi = pd.read_csv(args.cpi).set_index("year")["cpi_u_annual_average"]
 
-    require_columns(
-        universe_raw,
-        ["fips", "land_type"],
-        name="POLYSYS county-land universe",
-    )
-    require_columns(
-        county,
-        ["fips", "land_type", "year", "rent_usd_per_acre"],
-        name="county cash rents",
-    )
-    require_columns(
-        state,
-        ["state_ansi", "land_type", "year", "rent_usd_per_acre"],
-        name="state cash rents",
-    )
-    require_columns(cpi, ["year", "cpi"], name="CPI")
+    universe = pd.read_csv(args.universe, dtype={"fips": "string"})
+    national = rent_context(universe, county, state, cpi, reference_year=2022)
+    national.to_csv(args.output, index=False)
 
-    universe = universe_raw[["fips", "land_type"]].copy()
-    universe["fips"] = (
-        universe["fips"]
-        .astype("string")
-        .str.replace(r"\.0$", "", regex=True)
-        .str.zfill(5)
+    study_a = pd.DataFrame(
+        [(f, land) for f in STUDY_A_FIPS for land in ("Crop", "Pasture")],
+        columns=["fips", "land_type"],
     )
-    universe["land_type"] = standardize_land_type(universe["land_type"])
-    if universe["land_type"].isna().any():
-        raise ValueError("Unrecognized land type in POLYSYS universe.")
-    universe = universe.drop_duplicates().reset_index(drop=True)
-    universe["state_ansi"] = universe["fips"].str[:2]
-    require_unique(universe, ["fips", "land_type"], name="rent target universe")
+    mi = pd.read_csv(args.michigan_state, dtype={"state_ansi": "string"})
+    mi_state = pd.DataFrame({
+        "state_fips": mi["state_ansi"].str.zfill(2),
+        "land_type": mi["land_type"],
+        "year": mi["year"].astype(int),
+        "rent_nominal": mi["rent_nominal_usd_per_acre"].astype(float),
+    })
+    study = rent_context(study_a, county, mi_state, cpi, reference_year=2012)
+    if not study["rent_supported"].all():
+        raise ValueError("Every Study-A survey county needs a 2012 county rent context.")
+    study.to_csv(args.output_study_a, index=False)
 
-    county["fips"] = (
-        county["fips"]
-        .astype("string")
-        .str.replace(r"\.0$", "", regex=True)
-        .str.zfill(5)
-    )
-    county["state_ansi"] = county["fips"].str[:2]
-    county["land_type"] = standardize_land_type(county["land_type"])
-    county["year"] = pd.to_numeric(county["year"], errors="coerce")
-    county["rent_usd_per_acre"] = pd.to_numeric(
-        county["rent_usd_per_acre"], errors="coerce"
-    )
-    county = county[
-        county["land_type"].notna()
-        & county["year"].between(2019, 2025)
-        & county["rent_usd_per_acre"].notna()
-    ].copy()
-
-    # nearest same-county same-land observation within ±3 years;
-    # sort year ascending after distance so a tie chooses the earlier year.
-    county["distance_to_2022"] = (county["year"] - 2022).abs()
-    county = county.sort_values(
-        ["fips", "land_type", "distance_to_2022", "year"]
-    )
-    county_best = county.drop_duplicates(["fips", "land_type"], keep="first")
-    require_unique(county_best, ["fips", "land_type"], name="best county rents")
-
-    state["state_ansi"] = (
-        state["state_ansi"]
-        .astype("string")
-        .str.replace(r"\.0$", "", regex=True)
-        .str.zfill(2)
-    )
-    state["land_type"] = standardize_land_type(state["land_type"])
-    state["year"] = pd.to_numeric(state["year"], errors="coerce")
-    state["rent_usd_per_acre"] = pd.to_numeric(
-        state["rent_usd_per_acre"], errors="coerce"
-    )
-    state_2022 = state[
-        state["year"].eq(2022)
-        & state["land_type"].notna()
-        & state["rent_usd_per_acre"].notna()
-    ].copy()
-    require_unique(
-        state_2022,
-        ["state_ansi", "land_type"],
-        name="official state 2022 rents",
-    )
-
-    out = universe.merge(
-        county_best[
-            ["fips", "land_type", "year", "rent_usd_per_acre"]
-        ].rename(
-            columns={
-                "year": "county_year",
-                "rent_usd_per_acre": "county_rent_nominal",
-            }
-        ),
-        on=["fips", "land_type"],
-        how="left",
-        validate="1:1",
-    )
-
-    out = out.merge(
-        state_2022[
-            ["state_ansi", "land_type", "rent_usd_per_acre"]
-        ].rename(columns={"rent_usd_per_acre": "state_rent_2022_nominal"}),
-        on=["state_ansi", "land_type"],
-        how="left",
-        validate="m:1",
-    )
-
-    out["rent_tier"] = "UNSUPPORTED"
-    out["rent_year"] = np.nan
-    out["rent_nominal_usd_per_acre"] = np.nan
-
-    has_county = out["county_rent_nominal"].notna()
-    exact_2022 = has_county & out["county_year"].eq(2022)
-    near_year = has_county & ~out["county_year"].eq(2022)
-
-    out.loc[exact_2022, "rent_tier"] = "COUNTY_2022"
-    out.loc[near_year, "rent_tier"] = "COUNTY_NEAREST_PM3"
-    out.loc[has_county, "rent_year"] = out.loc[has_county, "county_year"]
-    out.loc[has_county, "rent_nominal_usd_per_acre"] = out.loc[
-        has_county, "county_rent_nominal"
-    ]
-
-    use_state = (
-        ~has_county
-        & out["state_rent_2022_nominal"].notna()
-    )
-    out.loc[use_state, "rent_tier"] = "STATE_2022"
-    out.loc[use_state, "rent_year"] = 2022
-    out.loc[use_state, "rent_nominal_usd_per_acre"] = out.loc[
-        use_state, "state_rent_2022_nominal"
-    ]
-
-    out["rent_supported"] = out["rent_tier"].ne("UNSUPPORTED")
-    out["rent_2012usd_per_acre"] = np.nan
-    supported = out["rent_supported"]
-    out.loc[supported, "rent_2012usd_per_acre"] = convert_to_2012(
-        out.loc[supported, "rent_nominal_usd_per_acre"],
-        out.loc[supported, "rent_year"].astype(int),
-        cpi,
-    )
-
-    if out.loc[~out["rent_supported"], "rent_2012usd_per_acre"].notna().any():
-        raise AssertionError("Unsupported rent cells must remain missing.")
-
-    keep = [
-        "fips",
-        "state_ansi",
-        "land_type",
-        "rent_supported",
-        "rent_tier",
-        "rent_year",
-        "rent_nominal_usd_per_acre",
-        "rent_2012usd_per_acre",
-    ]
-    args.output.parent.mkdir(parents=True, exist_ok=True)
-    out[keep].to_csv(args.output, index=False)
-
-    print("PASS: rent context constructed on the full POLYSYS county-land universe.")
-    print(out["rent_tier"].value_counts(dropna=False).to_string())
-    print(f"  target cells={len(out):,}")
-    print(f"  supported={int(out['rent_supported'].sum()):,}")
-    print(f"  unsupported={int((~out['rent_supported']).sum()):,}")
-    print(f"  output={args.output}")
+    print("PASS: rent context written.")
+    print(national["rent_tier"].value_counts().to_string())
+    print(f"  national cells={len(national):,}  unsupported={int((~national['rent_supported']).sum())}")
+    print(f"  Study-A cells={len(study)}  tiers={study['rent_tier'].value_counts().to_dict()}")
 
 
 if __name__ == "__main__":

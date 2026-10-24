@@ -1,0 +1,2 @@
+state,state_ansi,year,land_type,rent_nominal_usd_per_acre,eligible_as_stage04b_fallback,source,source_note,source_url
+Michigan,26,2012,Pasture,25.0,True,USDA National Agricultural Statistics Service,Michigan 2012 state pasture cash rent,https://www.nass.usda.gov/Statistics_by_State/Pennsylvania/Publications/Annual_Statistical_Bulletin/2011_2012/CashRent.pdf
