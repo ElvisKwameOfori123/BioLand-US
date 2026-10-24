@@ -1,0 +1,5 @@
+budget_crop,cost_case,year1_usd_per_ha,year2_usd_per_ha,later_usd_per_ha,year1_usd_per_t,year2_usd_per_t,later_usd_per_t,source
+Switchgrass,LOW,334.873165,117.132956,87.070765,0,20.784334,25.621246,"Energy Economics supplementary data, Elsevier PII S0140988317302906, mmc1.xlsx sheet COST rows 'Cost per ha' and 'Cost per ton'"
+Switchgrass,HIGH,820.518264,313.342101,182.327061,0,23.787434,28.624346,"Energy Economics supplementary data, Elsevier PII S0140988317302906, mmc1.xlsx sheet COST rows 'Cost per ha' and 'Cost per ton'"
+Miscanthus,LOW,2993.662874,446.859336,71.859336,0,10.331788,14.657607,"Energy Economics supplementary data, Elsevier PII S0140988317302906, mmc1.xlsx sheet COST rows 'Cost per ha' and 'Cost per ton'"
+Miscanthus,HIGH,3148.362874,1397.059336,147.059336,0,12.003788,16.329607,"Energy Economics supplementary data, Elsevier PII S0140988317302906, mmc1.xlsx sheet COST rows 'Cost per ha' and 'Cost per ton'"

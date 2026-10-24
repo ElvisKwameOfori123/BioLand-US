@@ -9,6 +9,7 @@ Outputs
                                                   TX, OK and NM (concentration check)
     results/manuscript/county_binding_summary.csv
     results/manuscript/feedstock_coverage.csv
+    results/manuscript/payable_rent_by_feedstock.csv  payable land rent vs local rent (E01)
     results/validation/reconciliation_checks.csv
 """
 
@@ -76,8 +77,17 @@ def main() -> None:
     bnd = bnd.loc[bnd["allocation_family"].eq("FAMILY_BALANCED")].pivot_table(
         index=["scenario_id", "contract_years"], columns="bound", values="M_Q_full_lower").reset_index()
     bnd = bnd.rename(columns={"EVIDENCE_LOWER": "M_Q_evidence_lower", "EVIDENCE_UPPER": "M_Q_evidence_upper"})
-    head = head.merge(rob[["scenario_id", "contract_years", "M_Q_ratio_only", "M_Q_offer_plus_rent"]],
-                      on=["scenario_id", "contract_years"], how="left")
+    rob = rob.rename(columns={"PRIMARY_REGIONAL_RENT_FALLBACK": "M_Q_regional_rent_fallback"})
+    head = head.merge(rob[["scenario_id", "contract_years", "M_Q_ratio_only", "M_Q_offer_plus_rent",
+                           "M_Q_regional_rent_fallback"]], on=["scenario_id", "contract_years"], how="left")
+    aff = pd.read_csv(R / "robustness/offer_affordability_national.csv")
+    aff = aff.loc[aff["allocation_family"].eq("FAMILY_BALANCED")].pivot_table(
+        index=["scenario_id", "contract_years"], columns="cost_case",
+        values=["M_Q_full_lower", "affordable_share_of_costed_Q"]).reset_index()
+    aff.columns = ["scenario_id", "contract_years"] + [
+        {"M_Q_full_lower": "M_Q_affordable", "affordable_share_of_costed_Q": "affordable_share"}[a] + "_" + b.lower()
+        for a, b in aff.columns[2:]]
+    head = head.merge(aff, on=["scenario_id", "contract_years"], how="left")
     head = head.merge(bnd[["scenario_id", "contract_years", "M_Q_evidence_lower", "M_Q_evidence_upper"]],
                       on=["scenario_id", "contract_years"], how="left")
     head = head.sort_values(keys).reset_index(drop=True)
@@ -133,6 +143,8 @@ def main() -> None:
     regional.to_csv(out_m / "regional_mobilization.csv", index=False)
     binding.to_csv(out_m / "county_binding_summary.csv", index=False)
     pd.read_csv(R / "structural/feedstock_transfer_coverage.csv").to_csv(out_m / "feedstock_coverage.csv", index=False)
+    pd.read_csv(R / "robustness/offer_affordability_by_feedstock.csv").to_csv(
+        out_m / "payable_rent_by_feedstock.csv", index=False)
     ledger = pd.DataFrame(checks)
     ledger.to_csv(out_v / "reconciliation_checks.csv", index=False)
 

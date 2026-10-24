@@ -43,3 +43,13 @@ bootstrap_draws = 1000
 bootstrap_seed = 20260912
 # 4 intensive representations x 2 land structures + acreage-weighted behaviour x 2.
 implemented_structural_variants = 10
+
+[economics]
+# Offer affordability (decision E01). Dollar years are assumptions to confirm:
+# BT23 states the $70/dt offer price without a base year; the cost budget is
+# taken as 2015 dollars.
+polysys_price_dollar_year = 2022
+cost_budget_dollar_year = 2015
+stand_years = 10
+discount_rate = 0.05
+year2_yield_share = 0.5

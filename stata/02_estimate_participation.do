@@ -12,8 +12,8 @@ set more off
 *
 * M1 CATEGORICAL  i.offer (randomized; experimental identification)
 * M2 SMOOTH       ln(offer) (national transport function, decision B06)
-* M3 ACRE_WEIGHT  M2 weighted by owned acres of the offered land type:
-*                 person-to-acreage sensitivity (decision B07)
+* M3 ACRE_WEIGHT  M2 weighted by owned acres of the offered land type (total acres
+*                 when missing): person-to-acreage sensitivity (decision B07)
 * LOCO            M2 refitted dropping one survey county at a time
 *
 * All models cluster standard errors by respondent.
@@ -59,8 +59,11 @@ _post_model `post' SMOOTH
 test ln_offer
 local p_ln_offer = r(p)
 
-* M3 acreage-weighted smooth model
-gen double w_acres = denom_acres if denom_acres > 0 & denom_xflag == 0
+* M3 acreage-weighted smooth model. Weight = owned acres of the offered land type;
+* where that is missing or flagged, total rural acres (B07). Without the fallback
+* the model silently dropped 361 mostly rejecting choices.
+gen double w_acres = cond(denom_acres > 0 & !missing(denom_acres) & denom_xflag == 0, ///
+    denom_acres, cond(total_acres > 0 & !missing(total_acres), total_acres, .))
 quietly count if missing(w_acres)
 local n_no_weight = r(N)
 logit accept ln_offer contract10 pasture switchgrass [pweight = w_acres], ///

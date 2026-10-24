@@ -15,6 +15,7 @@ the only hand-entered inputs are the two marked "bundled".
 | `studyA_rent_context.csv` | `scripts/04_prepare_rents.py` | 2012 rent context for the Study-A survey counties |
 | `cpi_u_annual.csv` | bundled | BLS CPI-U annual averages |
 | `michigan_state_rent_2012.csv` | bundled | NASS 2012 Michigan state pasture rent (Study-A fallback) |
+| `perennial_cost_budget.csv` | bundled | Switchgrass / miscanthus production budget (low, high), Energy Economics supplement, PII S0140988317302906 (E01) |
 
 `behavioural_access.csv` is also written here by script 05 but is large and
 git-ignored; `scripts/00_run_core.py` rebuilds it.

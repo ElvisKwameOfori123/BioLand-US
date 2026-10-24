@@ -87,6 +87,7 @@ def main() -> None:
             "fips": normalize_fips(x["fips"]),
             "state_name": x["state_name"].str.strip(),
             "county": x["county"].str.strip(),
+            "usdaregion": x["usdaregion"].str.strip(),
             "land_type": normalize_land_type(x["landsrce"]),
             "feedstock": x["resource"].str.strip(),
             "A_P": pd.to_numeric(x["harvest"], errors="coerce").astype(float),

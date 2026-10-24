@@ -250,9 +250,10 @@ def figure3(R: Path, out: Path) -> None:
         ("Rent-context transport", min(transport), max(transport), INK2),
         ("POLYSYS allocation family", fam.min(), fam.max(), INK2),
         ("Contract length (5 vs 10 yr)", min(central, h10["M_Q_central"]), max(central, h10["M_Q_central"]), INK2),
+        ("Offer affordability at $70/dt", h5["M_Q_affordable_high_cost"], h5["M_Q_affordable_low_cost"], SLOT[3]),
     ]
 
-    fig, axes = plt.subplots(1, 2, figsize=(7.2, 2.6), gridspec_kw={"width_ratios": [1.8, 1]})
+    fig, axes = plt.subplots(1, 2, figsize=(7.2, 2.8), gridspec_kw={"width_ratios": [1.8, 1]})
     ax = axes[0]
     y = np.arange(len(rows))[::-1]
     for yi, (lab, lo, hi, col) in zip(y, rows):
@@ -263,7 +264,7 @@ def figure3(R: Path, out: Path) -> None:
     ax.set_yticks(y)
     ax.set_yticklabels([r[0] for r in rows])
     ax.grid(axis="y", visible=False)
-    ax.set_xlim(0.5, 1.05)
+    ax.set_xlim(0.0, 1.08)
     pct(ax, "x")
     ax.set_xlabel("Biomass mobilized, M_Q (rent-indexed headline, m = 6.71)")
     letter(ax, "a", dx=-0.55)

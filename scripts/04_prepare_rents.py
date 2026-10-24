@@ -11,7 +11,8 @@ Land-type mapping (decision R01)
 
 Outputs (hierarchy in bioland_us.rents, decision R02)
     data/frozen/public/rent_context.csv          POLYSYS cells, reference year 2022,
-                                                 state 2022 fallback
+                                                 state 2022 fallback; plus a USDA-region
+                                                 fallback column (sensitivity, R03)
     data/frozen/public/studyA_rent_context.csv   Study-A survey counties, reference
                                                  year 2012, Michigan 2012 state
                                                  pasture rent as fallback
@@ -26,7 +27,7 @@ from pathlib import Path
 import pandas as pd
 
 from bioland_us.geography import normalize_fips
-from bioland_us.rents import rent_context
+from bioland_us.rents import rent_context, to_2012_dollars
 
 COUNTY_COLUMNS = {
     "RENT, CASH, CROPLAND, NON-IRRIGATED - EXPENSE, MEASURED IN $ / ACRE  -  <b>VALUE</b>": "Crop",
@@ -95,6 +96,21 @@ def main() -> None:
 
     universe = pd.read_csv(args.universe, dtype={"fips": "string"})
     national = rent_context(universe, county, state, cpi, reference_year=2022)
+
+    # R03 sensitivity only: unsupported cells take the mean 2022 state rent of the
+    # same land type across states in their USDA farm production region.
+    region = universe.assign(state_fips=universe["fips"].str[:2])[["state_fips", "usdaregion"]].drop_duplicates()
+    s22 = state.loc[state["year"].eq(2022)].merge(region, on="state_fips", how="inner")
+    regional = s22.groupby(["usdaregion", "land_type"], as_index=False)["rent_nominal"].mean()
+    cell_region = universe[["fips", "usdaregion"]].drop_duplicates("fips")
+    national = national.merge(cell_region, on="fips", how="left", validate="m:1")
+    national = national.merge(regional.rename(columns={"rent_nominal": "_regional"}),
+                              on=["usdaregion", "land_type"], how="left", validate="m:1")
+    national["rent_2012usd_regional_fallback"] = national["rent_2012usd_per_acre"]
+    fill = ~national["rent_supported"] & national["_regional"].notna()
+    national.loc[fill, "rent_2012usd_regional_fallback"] = to_2012_dollars(
+        national.loc[fill, "_regional"], pd.Series(2022, index=national.index[fill]), cpi)
+    national = national.drop(columns="_regional")
     national.to_csv(args.output, index=False)
 
     study_a = pd.DataFrame(
@@ -115,7 +131,8 @@ def main() -> None:
 
     print("PASS: rent context written.")
     print(national["rent_tier"].value_counts().to_string())
-    print(f"  national cells={len(national):,}  unsupported={int((~national['rent_supported']).sum())}")
+    print(f"  national cells={len(national):,}  unsupported={int((~national['rent_supported']).sum())}  "
+          f"filled by regional fallback (sensitivity)={int(fill.sum())}")
     print(f"  Study-A cells={len(study)}  tiers={study['rent_tier'].value_counts().to_dict()}")
 
 
