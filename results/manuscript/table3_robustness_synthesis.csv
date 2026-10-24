@@ -4,7 +4,7 @@ Leave one survey county out,12 participation models,0.787541361204874,0.75190112
 Conditional acreage representation,"Lower, IPW, central, upper",0.787541361204874,0.6674556594638562,0.8096100900345607,Table S2,12.008570174101774,Moderate (5–15 pp)
 Census suppression completion,Farmland-weighted vs equal shares,0.787541361204874,0.7867351039802362,0.787541361204874,Note S1,0.08062572246377853,Robust (≤5 pp)
 Person-to-acreage weighting,Acreage-weighted participation and share,0.787541361204874,0.5874251946563303,0.787541361204874,Table S1,20.011616654854368,Large (>15 pp)
-Out-of-range offers,Monotone evidence bounds outside $50–300,0.787541361204874,0.7250629094115658,0.8193759344842753,Fig. S2b,6.247845179330813,Moderate (5–15 pp)
+Out-of-range offers,Monotone evidence bounds outside $50–300,0.787541361204874,0.7250629094115658,0.8193759344842753,Fig. S6b,6.247845179330813,Moderate (5–15 pp)
 Rent in participation,Offer + rent model,0.787541361204874,0.759685402594814,0.787541361204874,Table S3,2.785595861005996,Robust (≤5 pp)
 Offer-to-rent ratio (stress test),"Ratio model; restriction rejected, p = 0.0002",0.787541361204874,0.787541361204874,0.983221080192109,Table S3,19.567971898723503,Stress test only (model rejected)
 Missing rent,USDA-region fallback for 73 cells,0.787541361204874,0.787541361204874,0.7887467887137288,Note S2,0.12054275088548838,Robust (≤5 pp)

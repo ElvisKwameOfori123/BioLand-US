@@ -11,6 +11,11 @@ python scripts/00_verify_release.py --recompute
 `--recompute` reruns scripts 05 and 06 from the committed tables and requires an
 exact match with `results/deterministic/national_mobilization.csv`.
 
+`python scripts/00_run_core.py` reruns the public chain from the committed inputs:
+05, 06, 08 and 10 (model, structural variants, transfer, affordability and capped
+offers), then 09, 11, 12 and 13 (spatial outputs, manuscript tables and ledger,
+Figs. 1-4 and S1-S6, review document). The bootstrap (07) needs the survey data.
+
 ## 2. Rebuild everything from raw sources
 
 1. Put the raw files in `data/raw/` (see `data/README.md`); checksums are in

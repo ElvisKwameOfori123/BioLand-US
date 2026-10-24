@@ -1,236 +1,78 @@
 # BioLand-US
 
-**Contractual land access and prospective U.S. perennial-biomass mobilization**
-
 [![tests](https://github.com/ElvisKwameOfori123/BioLand-US/actions/workflows/ci.yml/badge.svg)](https://github.com/ElvisKwameOfori123/BioLand-US/actions/workflows/ci.yml)
-[![license: CC0-1.0](https://img.shields.io/badge/license-CC0--1.0-lightgrey.svg)](LICENSE)
 
-BioLand-US is the public code and reproducibility companion for the manuscript **“Contractual land access constrains prospective US biomass mobilization.”**
+Code and results for the paper **"Who will supply the land? Contractual capacity and the feasibility of US
+perennial biomass allocations"** (submitted to *Land Use Policy*).
 
-It asks one implementation question:
+## What it does
 
-> **When a techno-economic model allocates land to perennial biomass, how much of that prospective allocation can be supported by compatible agricultural land, experimentally informed landholder behaviour and the institutional transmission of that behaviour into contractually accessible acreage?**
+National plans allocate land to perennial biomass, but the land is only delivered if the farmers and landowners
+who control it sign contracts. BioLand-US takes the 2023 Billion-Ton (POLYSYS) allocation for 2041 at US$70 per dry
+ton and tests it at two gates:
 
-BioLand-US does **not** rerun or re-optimize POLYSYS. It adds a downstream implementation layer that distinguishes prospective resource allocation from contractual implementation capacity and traces the pathway from compatible land, through behavioural access and institutional transmission, to prospective biomass mobilization.
+1. **Willingness**: would landholders accept the contract and commit land? Estimated from a randomized
+   stated-preference experiment (403 Michigan landowners, 1,270 choices) and applied to every county and land class.
+2. **Affordability**: can the biomass price pay the offer? The offer is compared with the largest land payment the
+   price can fund after production costs (Dumortier et al., 2017 budget).
 
----
+## Main results
 
-## Research logic
+At an offer of 6.71 times local cash rent (the reference):
 
-```text
-prospective POLYSYS allocation
-        ↓
-compatible agricultural land
-        ↓
-behavioural land access
-        ↓
-institutional transmission
-        ↓
-contractual capacity
-        ↓
-prospectively mobilized biomass
-```
+| Result | Value |
+|---|---|
+| Prospective biomass supported by willing landholders | 78.8% (95% interval 69.4–86.7%) |
+| ... with behaviour weighted by acreage | 58.7% |
+| Unmet requirement | about 90 million dry tons on 18.5 million acres |
+| Share of the unmet biomass in Texas, Oklahoma and New Mexico | 77.8% |
+| Mobilized when unaffordable offers are refused | 15.3–34.6% |
+| Mobilized when offers are capped at what the price can fund | 39.9–67.1% |
 
-This distinction matters because prospective biomass allocation does not itself establish the contractual land access required for implementation.
+Affordability ranges run from the high-cost to the low-cost budget. Every number quoted in the paper is in
+[`results/manuscript/manuscript_numbers.csv`](results/manuscript/manuscript_numbers.csv).
 
-County maps therefore represent **spatial implementation exposure under nationally transported experimental behaviour**. They are not maps of observed county willingness.
-
----
-
-## Reproduce the study
+## Run it
 
 ```bash
 git clone https://github.com/ElvisKwameOfori123/BioLand-US.git
 cd BioLand-US
 python -m venv .venv
-.venv\Scripts\activate          # macOS / Linux: source .venv/bin/activate
+.venv\Scripts\activate            # macOS / Linux: source .venv/bin/activate
 pip install -e ".[dev]"
+
+python -m pytest                                # unit tests
+python scripts/00_verify_release.py --recompute # check the committed results
+python scripts/00_run_core.py                   # rerun the model, tables and figures
 ```
 
-| Goal | Needs | Run |
-|---|---|---|
-| Check the release | the clone | `python -m pytest` and `python scripts/00_verify_release.py --recompute` |
-| Rerun the national model | the clone | `python scripts/00_run_core.py` |
-| Rebuild inputs from raw sources | raw files in `data/raw/` | `python scripts/00_run_core.py --from-raw` |
-| Re-estimate behaviour and run the bootstrap | KBS archive, Stata 18 | `do stata/00_run_behaviour.do`, then `python scripts/00_run_core.py --from-raw --restricted` |
+`python scripts/00_run_core.py --from-raw` also rebuilds the inputs from the raw public files placed in `data/raw/`
+(sources and checksums in [`data/source_registry.csv`](data/source_registry.csv)). Re-estimating the behaviour and
+running the bootstrap needs the survey data and Stata 18: run `do stata/00_run_behaviour.do`, then add `--restricted`.
+Details: [reproducibility](docs/reproducibility.md).
 
-Details, gates and data rules: [reproducibility](docs/reproducibility.md),
-[data](data/README.md), [scientific decisions](docs/DECISIONS.md).
-The respondent-level archive is never redistributed through GitHub.
+## What is where
 
----
-
-## Evidence base
-
-BioLand-US combines five evidence layers:
-
-| Evidence | Role |
+| Folder | Contents |
 |---|---|
-| 2023 Billion-Ton POLYSYS allocation | Upstream perennial-biomass allocation |
-| 2022 U.S. Census of Agriculture | Compatible crop and pasture land |
-| USDA NASS cash rents | Local rent context |
-| KBS Bioenergy and Land Use Survey | Contract-participation behaviour |
-| County geometry | Spatial matching and publication cartography |
+| `src/bioland_us/` | model code: behaviour, land, rents, capacity matching, affordability |
+| `scripts/` | the pipeline, numbered in run order ([guide](scripts/README.md)) |
+| `stata/` | behavioural estimation from the raw survey |
+| `data/frozen/public/` | small derived inputs the model reads |
+| `results/manuscript/` | Tables 2–3, Table S4 and the ledger of quoted numbers |
+| `results/figures/` | Figs. 1–4 and S1–S6, numbered as in the paper |
+| `docs/DECISIONS.md` | every analysis choice and its reason (Table S5 of the paper) |
 
-The central POLYSYS case retains the **2041, US$70 per dry ton** allocation for seven perennial resources across Crop and Pasture land sources.
+## Data
 
-The behavioural evidence comes from a randomized stated-preference experiment in southern Michigan with **403 respondents, 1,270 experimental choices and 356 accepted choices**. The Stata pipeline exports the non-disclosive parameters used by the national model to `data/frozen/public/behaviour_parameters_public.csv`.
+All inputs are public except the survey. The 2012 Bioenergy and Land Use Survey (KBS LTER, KBS098,
+[doi:10.6073/pasta/3f43b536ef860a2046db415b22ffcd6a](https://doi.org/10.6073/pasta/3f43b536ef860a2046db415b22ffcd6a))
+is available from its provider and is not redistributed here; the model uses only the non-disclosive parameters in
+`data/frozen/public/behaviour_parameters_public.csv`. See [data access](docs/data_access.md).
 
-Study-A source DOI:
+## Citation and licence
 
-```text
-10.6073/pasta/3f43b536ef860a2046db415b22ffcd6a
-```
+Cite the paper and this repository ([`CITATION.cff`](CITATION.cff)). The code is released under CC0 1.0
+([`LICENSE`](LICENSE)); source datasets keep their providers' terms.
 
----
-
-## Data access boundary
-
-The repository distinguishes public source data, public frozen parameters and restricted respondent records.
-
-| Input | Access | Repository treatment |
-|---|---|---|
-| POLYSYS / 2023 Billion-Ton allocation | Public | Download from ORNL Bioenergy KDF and checksum-verify |
-| 2022 Census Quick Stats bulk file | Public | Download from USDA NASS and checksum-verify |
-| County and state cash rents | Public query export | Obtain from NASS and verify the frozen export |
-| CPI-U annual averages | Public | Small frozen table bundled in the repository |
-| County geometry | Public | Obtain from USDA Census of Agriculture mapping resources |
-| Study-A respondent records | Third-party terms apply | Never redistributed |
-
-Exact provider links, filenames and SHA-256 values are recorded in:
-
-- [`docs/data_access.md`](docs/data_access.md)
-- [`data/source_registry.csv`](data/source_registry.csv)
-
-This is a deliberate reproducibility boundary, not an “available on request” gap.
-
----
-
-## Repository map
-
-```text
-BioLand-US/
-├── config/default.toml        settings only (no estimated numbers)
-├── data/
-│   ├── raw/                   original provider files (git-ignored)
-│   ├── restricted/            Study-A records (git-ignored)
-│   ├── frozen/public/         small derived tables (versioned)
-│   └── source_registry.csv    sources and SHA-256
-├── docs/                      DECISIONS, data access, reproducibility
-├── results/                   all generated by the pipeline
-├── scripts/                   00-11, run in order by 00_run_core.py
-├── src/bioland_us/            tested library code
-├── stata/                     behavioural pipeline from the raw KBS archive
-└── tests/
-```
-
-**Stata** estimates the Study-A behaviour from the raw survey. **Python** builds
-the national inputs from raw sources and runs the capacity model, uncertainty
-and robustness. GitHub Actions runs the tests and `00_verify_release.py --recompute`.
-
-Manuscript tables are in `results/manuscript/`, the reconciliation ledger in
-`results/validation/`, and Figures 1–5 (drawn straight from the result CSVs) in
-`results/figures/`.
-
----
-
-## Scientific safeguards
-
-The public implementation enforces several rules explicitly:
-
-- no POLYSYS re-optimization;
-- no double use of county-by-land capacity across feedstocks;
-- no conversion of unsupported rent to zero;
-- no arbitrary finite replacement for infinite implementation pressure;
-- no mixing of bootstrap uncertainty with structural sensitivity;
-- no claim that treatment-class transfer equals direct experimental evidence;
-- no interpretation of county maps as locally estimated willingness;
-- no redistribution of restricted respondent-level data.
-
-<details>
-<summary><strong>Core accounting notation</strong></summary>
-
-For county `c` and land pool `l`:
-
-```text
-A_P    upstream POLYSYS acreage requirement
-Q_P    upstream POLYSYS biomass production
-B      compatible agricultural land
-p      probability of contract participation
-s      conditional acreage share among participants
-kappa  county-by-land acreage-access rate
-K      contractual land-access capacity, B × kappa
-
-rho    = A_P / K
-lambda = min(1, K / A_P)
-
-A_M = lambda × A_P
-Q_M = lambda × Q_P
-```
-
-The main national mobilization quantity is:
-
-```text
-M_Q = sum(Q_M) / sum(Q_P)
-```
-
-</details>
-
-<details>
-<summary><strong>Behavioural transport and feedstock classes</strong></summary>
-
-The central behavioural specification uses randomized land-rental offers of US$50, US$100, US$200 and US$300 per acre per year with 5-year and 10-year contracts.
-
-Study A directly evaluates switchgrass and poplar. National transport therefore uses an explicit treatment-class mapping:
-
-```text
-Switchgrass, Miscanthus, Energy cane
-    → Switchgrass experimental archetype
-
-Poplar, Willow, Eucalyptus, Pine
-    → Poplar experimental archetype
-```
-
-This is a transport assumption, not evidence that respondents directly evaluated the untested species.
-
-</details>
-
----
-
-## Documentation
-
-Start with these files:
-
-- [Scientific decisions](docs/DECISIONS.md)
-- [Data access and reproducibility boundary](docs/data_access.md)
-- [Reproducibility workflow](docs/reproducibility.md)
-- [Source registry and checksums](data/source_registry.csv)
-- [Machine-readable citation](CITATION.cff)
-
----
-
-## Citation and archival status
-
-Use [`CITATION.cff`](CITATION.cff) to cite the software repository.
-
-The repository currently has **no GitHub Release and no Zenodo archival DOI**. A versioned release should be created first; the archival DOI can then be added to this README, `CITATION.cff` and the manuscript once Zenodo has archived the release.
-
----
-
-## Author
-
-**Elvis Kwame Ofori**  
-Plant and AgriBiosciences Research Centre, Ryan Institute  
-University of Galway, Galway, Ireland
-
-Website: https://elviskwameofori123.github.io/
-
----
-
-## Licence
-
-The repository currently carries **CC0 1.0 Universal** in [`LICENSE`](LICENSE).
-
-If a different software licence was intended, the licence file and repository metadata should be reconciled **before the first archival release**.
-
-Third-party source datasets remain subject to the terms and attribution requirements of their original providers.
+Elvis Kwame Ofori, Plant and AgriBiosciences Research Centre, Ryan Institute, University of Galway.

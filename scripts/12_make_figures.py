@@ -1,7 +1,7 @@
 """Draw the manuscript figures directly from the pipeline's result CSVs.
 
 Main text (results/figures/main): Fig1 framework, Fig2 the two gates, Fig3 geography,
-Fig4 uncertainty. Supplement (results/figures/supplementary): FigS1-S6.
+Fig4 uncertainty. Supplement (results/figures/supplementary): FigS1-S6, numbered as in the manuscript.
 
 Read-only: no model arithmetic happens here. The only operations are selecting
 rows and averaging county values over the three independent POLYSYS families
@@ -241,7 +241,7 @@ def figure2(R: Path, out: Path) -> None:
     letter(ax, "d")
 
     fig.tight_layout(h_pad=1.8, w_pad=2.0)
-    save(fig, out / "supplementary", "FigS2_NationalDetail")
+    save(fig, out / "supplementary", "FigS6_NationalDetail")
 
 
 # ----------------------------------------------------------------------------- Figure 3
@@ -653,7 +653,7 @@ def supplementary_land_class(R: Path, out: Path) -> None:
     ax.legend(loc="upper center", bbox_to_anchor=(0.5, -0.22), ncol=4)
     letter(ax, "b")
     fig.tight_layout(w_pad=2)
-    save(fig, out / "supplementary", "FigS5_LandClass")
+    save(fig, out / "supplementary", "FigS2_LandClass")
 
 
 def supplementary_transfer_and_gates(R: Path, out: Path) -> None:
@@ -724,7 +724,7 @@ def supplementary_transfer_and_gates(R: Path, out: Path) -> None:
     ax.set_xlabel("Share of unmet biomass in TX, OK, NM")
     letter(ax, "c", dx=-0.45)
     fig.tight_layout(w_pad=1.2)
-    save(fig, out / "supplementary", "FigS6_TransferAndGates")
+    save(fig, out / "supplementary", "FigS5_TransferAndGates")
 
 
 def main() -> None:

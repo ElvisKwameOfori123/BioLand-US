@@ -212,7 +212,7 @@ def paper_tables(R: Path, cfg: dict, det: pd.DataFrame, head: pd.DataFrame, coun
          per_choice.xs(land_c, level="landbase_structure").max(), "Table S2"),
         ("Census suppression completion", "Farmland-weighted vs equal shares", hr["M_Q_equal_land"], central, "Note S1"),
         ("Person-to-acreage weighting", "Acreage-weighted participation and share", hr["M_Q_acre_weighted"], central, "Table S1"),
-        ("Out-of-range offers", "Monotone evidence bounds outside $50–300", hr["M_Q_evidence_lower"], hr["M_Q_evidence_upper"], "Fig. S2b"),
+        ("Out-of-range offers", "Monotone evidence bounds outside $50–300", hr["M_Q_evidence_lower"], hr["M_Q_evidence_upper"], "Fig. S6b"),
         ("Rent in participation", "Offer + rent model", hr["M_Q_offer_plus_rent"], central, "Table S3"),
         ("Offer-to-rent ratio (stress test)", "Ratio model; restriction rejected, p = 0.0002", central, hr["M_Q_ratio_only"], "Table S3"),
         ("Missing rent", "USDA-region fallback for 73 cells", central, hr["M_Q_regional_rent_fallback"], "Note S2"),

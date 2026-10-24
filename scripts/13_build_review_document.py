@@ -159,11 +159,11 @@ def main() -> None:
     rows, fills = [], []
     for r in t3.itertuples(index=False):
         rows.append((r.check, r.what_varies, f"{100 * r.M_Q_low:.1f}–{100 * r.M_Q_high:.1f}",
-                     f"{r.largest_shift_pp:.1f}", f"S{str(r.supplement).lstrip('S')}", r.verdict))
+                     f"{r.largest_shift_pp:.1f}", r.supplement, r.verdict))
         fills.append(next(v for k, v in VERDICT_FILL.items() if r.verdict.startswith(k)))
     doc.add_paragraph()
     caption(doc, "Table 3.", f"Robustness of the reference result (M_Q = {pc('MQ_headline')}, m = 6.71, five-year).")
-    table(doc, ["Check", "What varies", "M_Q range (%)", "Largest shift (pp)", "Supplement", "Verdict"], rows,
+    table(doc, ["Check", "What varies", "M_Q range (%)", "Largest shift (pp)", "Where reported", "Verdict"], rows,
           [3.6, 4.6, 2.2, 1.8, 1.6, 3.2], fills)
     note(doc, "Each row changes one element and is reported separately; ranges are not combined. Verdict: robust ≤ 5 pp, "
               "moderate 5–15 pp, large > 15 pp shift from the reference.")
