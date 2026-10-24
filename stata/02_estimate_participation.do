@@ -3,82 +3,107 @@ clear
 set more off
 
 ********************************************************************************
-* Extensive-margin models.
+* 02  EXTENSIVE MARGIN: CONTRACT PARTICIPATION
 *
-* Categorical randomized-offer model = experimental identification.
-* Smooth log-dollar model            = national transport function.
+* Input  : $RESTRICTED/kbs_choices_long.dta
+* Outputs: $RESULTS_P/participation_coefficients.csv   all models, b / se / p
+*          $RESULTS_P/participation_margins.csv        p at the four offers
+*          $RESULTS_P/participation_loco.csv           leave-one-county-out
+*
+* M1 CATEGORICAL  i.offer (randomized; experimental identification)
+* M2 SMOOTH       ln(offer) (national transport function, decision B06)
+* M3 ACRE_WEIGHT  M2 weighted by owned acres of the offered land type:
+*                 person-to-acreage sensitivity (decision B07)
+* LOCO            M2 refitted dropping one survey county at a time
+*
+* All models cluster standard errors by respondent.
 ********************************************************************************
 
-use "$FROZEN_R/behaviour_analytic_RESTRICTED.dta", clear
+use "$RESTRICTED/kbs_choices_long.dta", clear
+keep if analysis == 1
 
-logit acc ib50.offer contract10 pasture switchgrass, vce(cluster id)
-estimates store extensive_categorical
+tempname post
+tempfile coefs
+postfile `post' str16 model str16 term double(b se p) long(n clusters) using `coefs'
 
-margins, at(offer=(50 100 200 300)) post
-matrix M = r(table)
+capture program drop _post_model
+program define _post_model
+    args post model
+    local n = e(N)
+    local cl = e(N_clust)
+    tempname B V
+    matrix `B' = e(b)
+    matrix `V' = e(V)
+    local names : colnames `B'
+    local k = colsof(`B')
+    forvalues j = 1/`k' {
+        local t : word `j' of `names'
+        if strpos("`t'", "b.") | strpos("`t'", "o.") continue
+        local se = sqrt(`V'[`j', `j'])
+        local z = `B'[1, `j'] / `se'
+        post `post' ("`model'") ("`t'") (`B'[1, `j']) (`se') ///
+            (2 * normal(-abs(`z'))) (`n') (`cl')
+    }
+end
 
-preserve
-clear
-set obs 4
-gen double offer = .
-gen double margin = .
-replace offer = 50  in 1
-replace offer = 100 in 2
-replace offer = 200 in 3
-replace offer = 300 in 4
-forvalues j = 1/4 {
-    replace margin = M[1,`j'] in `j'
+* M1 categorical randomized offer
+logit accept ib50.offer contract10 pasture switchgrass, vce(cluster id)
+_post_model `post' CATEGORICAL
+margins offer, post
+matrix M1 = r(table)
+
+* M2 smooth log-dollar transport model
+logit accept ln_offer contract10 pasture switchgrass, vce(cluster id)
+estimates store smooth
+_post_model `post' SMOOTH
+test ln_offer
+local p_ln_offer = r(p)
+
+* M3 acreage-weighted smooth model
+gen double w_acres = denom_acres if denom_acres > 0 & denom_xflag == 0
+quietly count if missing(w_acres)
+local n_no_weight = r(N)
+logit accept ln_offer contract10 pasture switchgrass [pweight = w_acres], ///
+    vce(cluster id)
+_post_model `post' ACRE_WEIGHTED
+
+* Leave one survey county out (respondents in several or other counties stay in).
+levelsof fips if fips != "", local(fipsvals)
+foreach f of local fipsvals {
+    quietly logit accept ln_offer contract10 pasture switchgrass ///
+        if fips != "`f'", vce(cluster id)
+    _post_model `post' LOCO_`f'
 }
-export delimited using "$RESULTS_R/extensive_categorical_margins.csv", replace
-restore
-
-logit acc ln_offer contract10 pasture switchgrass, vce(cluster id)
-estimates store extensive_smooth
-
-scalar B0 = _b[_cons]
-scalar B1 = _b[ln_offer]
-scalar B2 = _b[contract10]
-scalar B3 = _b[pasture]
-scalar B4 = _b[switchgrass]
+postclose `post'
 
 preserve
-clear
-set obs 5
-gen str24 parameter = ""
-gen double value = .
-replace parameter = "intercept"     in 1
-replace parameter = "ln_offer"      in 2
-replace parameter = "contract_10yr" in 3
-replace parameter = "pasture"       in 4
-replace parameter = "switchgrass"   in 5
-replace value = B0 in 1
-replace value = B1 in 2
-replace value = B2 in 3
-replace value = B3 in 4
-replace value = B4 in 5
-export delimited using "$RESULTS_R/extensive_smooth_coefficients.csv", replace
+    use `coefs', clear
+    replace term = "intercept" if term == "_cons"
+    export delimited using "$RESULTS_P/participation_coefficients.csv", replace
 restore
 
-margins, at(offer=(50 100 200 300)) expression( ///
-    invlogit(_b[_cons] + _b[ln_offer]*ln(offer) + ///
-    _b[contract10]*contract10 + _b[pasture]*pasture + ///
-    _b[switchgrass]*switchgrass) ///
-)
+* Predictive margins at the randomized offers: categorical vs smooth.
+estimates restore smooth
+margins, at(ln_offer = (`=ln(50)' `=ln(100)' `=ln(200)' `=ln(300)'))
+matrix M2 = r(table)
 
-matrix MS = r(table)
 preserve
-clear
-set obs 4
-gen double offer = .
-gen double margin = .
-replace offer = 50  in 1
-replace offer = 100 in 2
-replace offer = 200 in 3
-replace offer = 300 in 4
-forvalues j = 1/4 {
-    replace margin = MS[1,`j'] in `j'
-}
-export delimited using "$RESULTS_R/extensive_smooth_margins.csv", replace
+    clear
+    set obs 4
+    gen double offer = .
+    gen double p_categorical = .
+    gen double p_smooth = .
+    local offers 50 100 200 300
+    forvalues j = 1/4 {
+        replace offer = `: word `j' of `offers'' in `j'
+        replace p_categorical = M1[1, `j'] in `j'
+        replace p_smooth = M2[1, `j'] in `j'
+    }
+    gen double smooth_minus_categorical = p_smooth - p_categorical
+    export delimited using "$RESULTS_P/participation_margins.csv", replace
 restore
 
-display as result "PASS: extensive behavioural models estimated."
+display as result "PASS 02: participation models estimated."
+display as text "  ln(offer) test p = " %6.4f `p_ln_offer'
+display as text "  choices without a usable acreage weight (dropped in M3): `n_no_weight'"
+program drop _post_model

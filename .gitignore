@@ -53,3 +53,6 @@ manifests/_local/**
 build/
 dist/
 *.egg-info/
+
+# Respondent-level Stata outputs
+results/restricted/**
