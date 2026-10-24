@@ -1,4 +1,5 @@
 check,status,value
+bootstrap draws equal config,PASS,1000
 mobilized + unmet = upstream biomass,PASS,
 mobilized acreage <= upstream acreage,PASS,
 "lambda within [0, 1]",PASS,
