@@ -1,7 +1,7 @@
 """Draw the manuscript figures directly from the pipeline's result CSVs.
 
 Main text (results/figures/main): Fig1 framework, Fig2 the two gates, Fig3 geography,
-Fig4 uncertainty. Supplement (results/figures/supplementary): FigS1-S5.
+Fig4 uncertainty. Supplement (results/figures/supplementary): FigS1-S6.
 
 Read-only: no model arithmetic happens here. The only operations are selecting
 rows and averaging county values over the three independent POLYSYS families
@@ -263,8 +263,11 @@ def figure3(R: Path, out: Path) -> None:
         ("Rent-context transport", min(transport), max(transport), INK2),
         ("POLYSYS allocation family", fam.min(), fam.max(), INK2),
         ("Contract length (5 vs 10 yr)", min(central, h10["M_Q_central"]), max(central, h10["M_Q_central"]), INK2),
-        ("Offer affordability at $70/dt", h5["M_Q_affordable_high_cost"], h5["M_Q_affordable_low_cost"], SLOT[3]),
     ]
+    t3 = pd.read_csv(R / "manuscript/table3_robustness_synthesis.csv").set_index("check")
+    for check, label in (("Offer affordability at $70/dt", "Unaffordable offers refused"),
+                         ("Offer capped at payable rent", "Offers capped at payable rent")):
+        rows.append((label, t3.loc[check, "M_Q_low"], t3.loc[check, "M_Q_high"], SLOT[3]))
 
     fig, axes = plt.subplots(1, 2, figsize=(7.2, 2.8), gridspec_kw={"width_ratios": [1.8, 1]})
     ax = axes[0]
@@ -512,13 +515,22 @@ def main_figure2(R: Path, out: Path) -> None:
     ax.plot(x, b["M_Q_affordable_low_cost"], color=SLOT[1], marker="s", ms=3, mec=SURFACE,
             label="…and offer affordable (low cost)")
     ax.plot(x, b["M_Q_affordable_high_cost"], color=SLOT[1], linestyle="--", linewidth=1, label="…(high cost)")
+    cap = pd.read_csv(R / "robustness/capped_offer_national.csv")
+    cap = cap.loc[cap["allocation_family"].eq("FAMILY_BALANCED") & cap["contract_years"].eq(5)
+                  & cap["track"].eq("B_RENT_INDEXED")].pivot(index="rent_multiplier", columns="cost_case",
+                                                              values="M_Q_full_lower").sort_index()
+    ax.fill_between(cap.index, cap["HIGH_COST"], cap["LOW_COST"], color=SLOT[2], alpha=0.18, linewidth=0)
+    ax.plot(cap.index, cap["LOW_COST"], color=SLOT[2], marker="^", ms=3, mec=SURFACE,
+            label="Offer capped at payable rent (low cost)")
+    ax.plot(cap.index, cap["HIGH_COST"], color=SLOT[2], linestyle="--", linewidth=1, label="…(high cost)")
     head_m = float(scen.loc[scen["scenario_id"].eq(HEADLINE), "rent_multiplier"].iloc[0])
     ax.axvline(head_m, color=MUTED, linestyle=":", linewidth=0.8)
     multiplier_axis(ax)
     ax.set_ylim(0, 1.02)
     pct(ax)
     ax.set_ylabel("Biomass mobilized, M_Q")
-    ax.legend(loc="upper left", fontsize=5.6)
+    ax.legend(loc="upper center", bbox_to_anchor=(0.5, -0.24), ncol=2, fontsize=5.2, handlelength=1.6,
+              columnspacing=0.8)
     letter(ax, "b")
 
     ax = axes[2]
@@ -644,6 +656,77 @@ def supplementary_land_class(R: Path, out: Path) -> None:
     save(fig, out / "supplementary", "FigS5_LandClass")
 
 
+def supplementary_transfer_and_gates(R: Path, out: Path) -> None:
+    """Rent coverage of the experiment, where each gate binds, and deficit concentration by design."""
+    res = pd.read_csv("data/frozen/public/polysys_allocation.csv", dtype={"fips": "string"})
+    rents = pd.read_csv("data/frozen/public/rent_context.csv", dtype={"fips": "string"})
+    survey = pd.read_csv("data/frozen/public/studyA_rent_context.csv")["rent_2012usd_per_acre"]
+    r = res.merge(rents, on=["fips", "land_type"], how="left")
+    r = r.loc[r["rent_supported"].fillna(False).astype(bool) & r["A_P"].gt(0)]
+    gates = pd.read_csv(R / "robustness/gate_geography.csv")
+    conc = pd.read_csv(R / "robustness/deficit_concentration_by_design.csv").set_index("design")
+    numbers = pd.read_csv(R / "manuscript/manuscript_numbers.csv").set_index("key")["value"]
+
+    fig, axes = plt.subplots(1, 3, figsize=(7.2, 2.6), gridspec_kw={"width_ratios": [1, 1.25, 1]})
+    ax = axes[0]
+    ax.axvspan(survey.min(), survey.max(), color=EMPTY, zorder=0)
+    ax.text(np.sqrt(survey.min() * survey.max()), 0.04, "survey\ncounties", ha="center", fontsize=5.6, color=INK2)
+    for land, colour in (("Crop", SLOT[0]), ("Pasture", SLOT[1])):
+        d = r.loc[r["land_type"].eq(land)]
+        v, w = d["rent_2012usd_per_acre"].to_numpy(float), d["A_P"].to_numpy(float)
+        o = np.argsort(v)
+        ax.plot(v[o], np.cumsum(w[o]) / w.sum(), color=colour, label=f"{land} acres")
+    ax.set_xscale("log")
+    ax.set_xlim(1, 300)
+    ax.set_xticks([1, 3, 10, 30, 100, 300])
+    ax.set_xticklabels(["1", "3", "10", "30", "100", "300"])
+    ax.minorticks_off()
+    ax.set_ylim(0, 1)
+    pct(ax)
+    ax.set_xlabel("Local cash rent (2012 US$ per acre)")
+    ax.set_ylabel("Cumulative share of POLYSYS acres")
+    ax.legend(loc="upper left")
+    letter(ax, "a")
+
+    ax = axes[1]
+    g = gates.loc[gates["dimension"].eq("usdaregion") & gates["Q_P_share"].gt(0.005)]
+    g = g.sort_values("Q_P_share")
+    y = np.arange(len(g))
+    ax.barh(y + 0.2, g["willingness_unmet_share"], height=0.38, color=SLOT[0], label="Willingness shortfall")
+    ax.barh(y - 0.2, g["affordability_loss_share_low"], height=0.38, color=SLOT[1],
+            label="Lost to affordability (low cost)")
+    ax.set_yticks(y)
+    ax.set_yticklabels(g["group"])
+    ax.grid(axis="y", visible=False)
+    pct(ax, "x")
+    ax.set_xlabel("Share of national biomass lost at the gate")
+    ax.legend(loc="lower right")
+    letter(ax, "b", dx=-0.32)
+
+    ax = axes[2]
+    designs = [("RENT_INDEXED_REFERENCE", "Rent-indexed\n(6.71× rent)"), ("UNIFORM_50", "Uniform $50"),
+               ("UNIFORM_100", "Uniform $100"), ("UNIFORM_300", "Uniform $300"),
+               ("RENT_INDEXED_REFERENCE_ACRE_WEIGHTED", "Rent-indexed,\nacreage-weighted")]
+    y = np.arange(len(designs))[::-1]
+    vals = [conc.loc[k, "unmet_share_tx_ok_nm"] for k, _ in designs]
+    ax.barh(y, vals, height=0.55, color=SLOT[1])
+    for yi, v in zip(y, vals):
+        ax.text(v + 0.01, yi, f"{v:.0%}", va="center", fontsize=5.6, color=INK2)
+    ax.axvline(numbers["tx_ok_nm_share_of_Q_P"], color=MUTED, linestyle=":", linewidth=0.9)
+    ax.text(numbers["tx_ok_nm_share_of_Q_P"] - 0.02, -0.75, "share of\nallocation", fontsize=5.4,
+            color=INK2, ha="right", va="bottom")
+    ax.set_yticks(y)
+    ax.set_yticklabels([lab for _, lab in designs])
+    ax.set_xlim(0, 1)
+    ax.set_ylim(-0.9, len(designs) - 0.5)
+    ax.grid(axis="y", visible=False)
+    pct(ax, "x")
+    ax.set_xlabel("Share of unmet biomass in TX, OK, NM")
+    letter(ax, "c", dx=-0.45)
+    fig.tight_layout(w_pad=1.2)
+    save(fig, out / "supplementary", "FigS6_TransferAndGates")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--results", type=Path, default=Path("results"))
@@ -658,6 +741,7 @@ def main() -> None:
     figure1(args.results, args.output)          # Fig S1
     figure2(args.results, args.output)          # Fig S2
     supplementary_land_class(args.results, args.output)
+    supplementary_transfer_and_gates(args.results, args.output)
     if not args.skip_maps:
         geo, states = load_geometry(Path.cwd())
         main_figure3(args.results, args.output, geo, states)

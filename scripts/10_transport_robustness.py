@@ -21,6 +21,14 @@ Outputs (results/robustness/)
     offer_affordability_dollar_year.csv   headline affordability for other price dollar years
     offer_vs_payable_rows.csv             per POLYSYS row: headline offer and payable rent
     loco_national.csv                     national M_Q under each leave-one-county-out model
+    capped_offer_national.csv             M_Q when each offer is capped at the payable rent,
+                                          O = min(offer, L), and land with L <= 0 is not
+                                          offered (E02), with evidence bounds
+    capped_offer_dollar_year.csv          capped headline for other price dollar years
+    gate_geography.csv                    where the willingness and affordability gates
+                                          bind at the headline, by land class and region (E03)
+    deficit_concentration_by_design.csv   share of unmet biomass in TX, OK and NM under
+                                          rent-indexed, uniform, acreage-weighted and ratio designs
 
 Also: PRIMARY_REGIONAL_RENT_FALLBACK fills the 73 no-rent cells with the USDA-region
 mean state rent (R03 sensitivity) in transport_national.csv.
@@ -234,7 +242,111 @@ def main() -> None:
             dollar_rows.append({"price_dollar_year": price_year, "price_2012usd_per_dt": price_y,
                                 "cost_case": cost_label, "M_Q_full_lower": float(np.mean(res["M_Q_full_lower"]))})
 
+    # ---- E02: capped offers, O = min(offer, L); land with L <= 0 is not offered ----
+    def capped(offer, lm, years):
+        o = np.where(costed, np.minimum(offer, lm), offer)
+        declined = costed & np.isfinite(offer) & ~(lm > 0)
+        p = model.participation(np.where(declined | ~(o > 0), np.nan, o), years, primary)
+        p = np.where(declined, 0.0, p)
+        p50 = model.participation(np.full(len(o), 50.0), years, primary)
+        p300 = model.participation(np.full(len(o), 300.0), years, primary)
+        low = np.where(declined, 0.0, np.where(o < 50, 0.0, np.where(o > 300, p300, p)))
+        high = np.where(declined, 0.0, np.where(o < 50, p50, np.where(o > 300, 1.0, p)))
+        for v in (low, high):
+            v[np.isnan(p)] = np.nan
+        return p, low, high, o, declined
+
+    capped_rows = []
+    for track, scenario, multiplier, offer in scenarios:
+        for years in cfg["experiment"]["contract_years"]:
+            for case, cost_label in (("LOW", "LOW_COST"), ("HIGH", "HIGH_COST")):
+                p, low, high, o, declined = capped(offer, l_max[case], years)
+                r_c, r_lo, r_hi = model.run(p, s), model.run(low, s), model.run(high, s)
+                rows = rows_for(model, r_c, cost_case=cost_label, track=track, scenario_id=scenario,
+                                rent_multiplier=multiplier, contract_years=years)
+                for i, fam in enumerate(model.families):
+                    f = (resource["allocation_family"] == fam).to_numpy() & costed
+                    rows[i]["M_Q_evidence_lower"] = r_lo["M_Q_full_lower"][i]
+                    rows[i]["M_Q_evidence_upper"] = r_hi["M_Q_full_lower"][i]
+                    rows[i]["declined_share_of_costed_Q"] = q[f & declined].sum() / q[f].sum()
+                    rows[i]["below_support_share_of_costed_Q"] = q[f & ~declined & (o < 50)].sum() / q[f].sum()
+                for k in ("M_Q_evidence_lower", "M_Q_evidence_upper", "declined_share_of_costed_Q",
+                          "below_support_share_of_costed_Q"):
+                    rows[-1][k] = np.mean([x[k] for x in rows[:-1]])
+                capped_rows += rows
+
+    capped_dollar = []
+    for price_year in econ["price_dollar_year_sensitivity"]:
+        price_y = cfg["polysys"]["biomass_price_usd_per_dry_ton"] * cpi.loc[2012] / cpi.loc[price_year]
+        for case, cost_label in (("LOW", "LOW_COST"), ("HIGH", "HIGH_COST")):
+            lm = np.full(len(resource), np.nan)
+            for name in crop.dropna().unique():
+                rows_c = (crop == name).to_numpy()
+                lm[rows_c] = max_land_payment(yield_dt[rows_c], price_y, budget.loc[(name, case)],
+                                              stand_years=econ["stand_years"], discount_rate=econ["discount_rate"],
+                                              year2_yield_share=econ["year2_yield_share"], cost_deflator=deflator)
+            p = capped(head_m * rent, lm, years_head)[0]
+            capped_dollar.append({"price_dollar_year": price_year, "cost_case": cost_label,
+                                  "M_Q_full_lower": float(np.mean(model.run(p, s)["M_Q_full_lower"]))})
+
+    # ---- E03: where each gate binds, and how concentrated the deficit is ----------
+    # Shares pool the three allocation families, as the county unmet-biomass shares do.
+    pool_fips = model.pools["fips"]
+    region_of = resource.drop_duplicates("fips").set_index("fips")["usdaregion"]
+    south = np.isin(pool_fips.str[:2], ["48", "40", "35"])
+    groups = {"land_type": model.pools["land_type"].to_numpy(),
+              "usdaregion": pool_fips.map(region_of).to_numpy(),
+              "southern_plains_tx_ok_nm": np.where(south, "TX_OK_NM", "OTHER")}
+    row_groups = {"land_type": resource["land_type"].to_numpy(), "usdaregion": resource["usdaregion"].to_numpy(),
+                  "southern_plains_tx_ok_nm": np.where(np.isin(resource["fips"].str[:2], ["48", "40", "35"]),
+                                                       "TX_OK_NM", "OTHER")}
+    offer_h = head_m * rent
+    will = model.run(p_head, s)
+    mobilized = lambda res_: np.nan_to_num(res_["lambda"]) * model.Q  # noqa: E731
+    unmet_w = model.Q - mobilized(will)
+    lost = {}
+    for case in ("LOW", "HIGH"):
+        refused = np.where(costed & np.isfinite(offer_h) & ~(offer_h <= l_max[case]), 0.0, p_head)
+        lost[case] = mobilized(will) - mobilized(model.run(refused, s))
+    priced = costed & np.isfinite(offer_h)
+    gate_rows = []
+    for dim, g_pool in groups.items():
+        g_row = row_groups[dim]
+        for g in pd.unique(g_pool):
+            pm, rm = g_pool == g, g_row == g
+            row = {"dimension": dim, "group": g, "Q_P_share": model.Q[pm].sum() / model.Q.sum(),
+                   "willingness_unmet_share": unmet_w[pm].sum() / unmet_w.sum()}
+            for case in ("LOW", "HIGH"):
+                fail = priced & (offer_h > l_max[case])
+                row[f"offer_exceeds_L_share_of_costed_Q_{case.lower()}"] = q[rm & fail].sum() / q[rm & priced].sum()
+                row[f"affordability_loss_share_{case.lower()}"] = lost[case][pm].sum() / lost[case].sum()
+            gate_rows.append(row)
+
+    acre_model = participation_model(params, "ACRE_WEIGHTED")
+    s_acre = conditional_share(params, "CENTRAL_PRIMARY", "ACRE_WEIGHTED")
+    ratio = coefs["RATIO_ONLY"]
+    c10, pas, sw = covariates(model, years_head)
+    p_ratio = expit(ratio["intercept"] + ratio["ln_offer_rent_ratio"] * np.log(head_m) + ratio["contract_10yr"] * c10
+                    + ratio["pasture"] * pas + ratio["switchgrass"] * sw)
+    designs = [("RENT_INDEXED_REFERENCE", p_head, s)]
+    designs += [(f"UNIFORM_{int(o)}", model.participation(np.full(len(rent), float(o)), years_head, primary), s)
+                for o in cfg["experiment"]["offers_usd_per_acre_year"]]
+    designs += [("RENT_INDEXED_REFERENCE_ACRE_WEIGHTED", model.participation(offer_h, years_head, acre_model), s_acre),
+                ("RENT_INDEXED_REFERENCE_RATIO_MODEL", np.where(np.isfinite(rent), p_ratio, np.nan), s)]
+    conc = []
+    for name, p, share in designs:
+        res_d = model.run(p, share)
+        u = model.Q - mobilized(res_d)
+        conc.append({"design": name, "M_Q_full_lower": float(np.mean(res_d["M_Q_full_lower"])),
+                     "unmet_share_tx_ok_nm": u[south].sum() / u.sum(),
+                     "unmet_share_texas": u[pool_fips.str[:2].eq("48").to_numpy()].sum() / u.sum(),
+                     "unmet_share_pasture": u[groups["land_type"] == "Pasture"].sum() / u.sum()})
+
     args.output_dir.mkdir(parents=True, exist_ok=True)
+    pd.DataFrame(capped_rows).to_csv(args.output_dir / "capped_offer_national.csv", index=False)
+    pd.DataFrame(capped_dollar).to_csv(args.output_dir / "capped_offer_dollar_year.csv", index=False)
+    pd.DataFrame(gate_rows).to_csv(args.output_dir / "gate_geography.csv", index=False)
+    pd.DataFrame(conc).to_csv(args.output_dir / "deficit_concentration_by_design.csv", index=False)
     pd.DataFrame(dollar_rows).to_csv(args.output_dir / "offer_affordability_dollar_year.csv", index=False)
     pd.DataFrame(loco_rows).to_csv(args.output_dir / "loco_national.csv", index=False)
     payable.to_csv(args.output_dir / "offer_vs_payable_rows.csv", index=False)
@@ -268,6 +380,14 @@ def main() -> None:
           .round(3).to_string())
     print(summary.round(1).to_string(index=False))
     print(pd.DataFrame(dollar_rows).round(3).to_string(index=False))
+    c = pd.DataFrame(capped_rows)
+    c = c.loc[c["allocation_family"].eq("FAMILY_BALANCED") & c["contract_years"].eq(5)]
+    print("Capped offers O = min(offer, L):")
+    print(c.pivot(index="scenario_id", columns="cost_case", values=["M_Q_full_lower", "M_Q_evidence_lower",
+                                                                    "M_Q_evidence_upper"]).round(3).to_string())
+    print(pd.DataFrame(capped_dollar).round(3).to_string(index=False))
+    print(pd.DataFrame(gate_rows).round(3).to_string(index=False))
+    print(pd.DataFrame(conc).round(3).to_string(index=False))
 
 
 def weighted_median(values: pd.Series, weights: pd.Series) -> float:
