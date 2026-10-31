@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "bioland-us"
-version = "0.1.0"
-description = "Reproducible implementation-layer modelling for US perennial biomass mobilization."
+version = "0.2.0"
+description = "Reproducible analysis of whether US bioenergy land allocations can be secured and afforded."
 readme = "README.md"
 requires-python = ">=3.12"
 authors = [
