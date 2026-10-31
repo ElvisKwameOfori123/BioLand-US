@@ -5,7 +5,7 @@ type: software
 authors:
   - family-names: "Ofori"
     given-names: "Elvis Kwame"
-abstract: "Code and results for \"Who will supply the land? Contractual capacity and the feasibility of US perennial biomass allocations\": tests the 2023 Billion-Ton perennial-biomass allocation against landholder willingness and payment affordability."
+abstract: "Reproducible analysis for the study 'Land on paper: testing US bioenergy allocations against landholder contractual capacity'. BioLand-US tests whether land allocated to perennial biomass can be secured through voluntary contracts and whether the payments needed to recruit landholders can be supported by the biomass value."
 repository-code: "https://github.com/ElvisKwameOfori123/BioLand-US"
 url: "https://github.com/ElvisKwameOfori123/BioLand-US"
 license: "CC0-1.0"
