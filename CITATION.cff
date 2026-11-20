@@ -8,6 +8,6 @@ authors:
 abstract: "Reproducible analysis for the study 'Land on paper: testing US bioenergy allocations against landholder contractual capacity'. BioLand-US tests whether land allocated to perennial biomass can be secured through voluntary contracts and whether the payments needed to recruit landholders can be supported by the biomass value."
 repository-code: "https://github.com/ElvisKwameOfori123/BioLand-US"
 url: "https://github.com/ElvisKwameOfori123/BioLand-US"
-license: "CC0-1.0"
+license: "GPL-3.0-only"
 version: 0.2.0
 date-released: 2026-10-24

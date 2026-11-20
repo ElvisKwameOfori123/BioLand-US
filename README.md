@@ -160,7 +160,7 @@ Please cite the associated manuscript and this repository. Citation metadata are
 
 ## Licence
 
-The analysis code is released under CC0 1.0. Source datasets retain the terms set by their original providers.
+The analysis code is released under the GNU General Public License v3.0. Source datasets retain the terms set by their original providers.
 
 **Author:** Elvis Kwame Ofori  
 Plant and AgriBiosciences Research Centre, Ryan Institute, University of Galway
